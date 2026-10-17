@@ -11,9 +11,9 @@ export const UnderDevelopmentPage: React.FC = () => {
         {/* Large Centered Logo */}
         <div className="w-full flex justify-center">
           <img
-            src="/logo-tint.png"
+            src="/logo-cropped.png"
             alt="Gorod Logistics"
-            className="w-64 sm:w-80 md:w-96 max-w-[85vw] h-auto object-contain transition-transform duration-300 hover:scale-105"
+            className="w-72 sm:w-96 md:w-[420px] max-w-[85vw] h-auto object-contain transition-transform duration-300 hover:scale-105"
           />
         </div>
 
