@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { Plane, Ship, ShieldCheck, X } from 'lucide-react';
+import { Plane, Ship, ShieldCheck, X, FileText, ExternalLink, Download } from 'lucide-react';
 
 export const UnderDevelopmentPage: React.FC = () => {
   const [activeModal, setActiveModal] = useState<'none' | 'air' | 'sea'>('none');
-  const [modalTab, setModalTab] = useState<'rates' | 'terms'>('rates');
+  const [modalTab, setModalTab] = useState<'pdf' | 'rates' | 'terms'>('pdf');
 
   const openModal = (type: 'air' | 'sea') => {
     setActiveModal(type);
-    setModalTab('rates');
+    setModalTab('pdf'); // Default to showing the official PDF directly
   };
 
   const closeModal = () => {
     setActiveModal('none');
   };
+
+  const pdfUrl =
+    activeModal === 'air'
+      ? '/tariffs/air-cargo-tariff.pdf'
+      : '/tariffs/sea-cargo-tariff.pdf';
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#191919] text-white flex flex-col justify-between selection:bg-[#852929] selection:text-white px-4 py-4 sm:px-6 sm:py-6 font-sans relative">
@@ -75,27 +80,37 @@ export const UnderDevelopmentPage: React.FC = () => {
         <span>Directorate of Port, Valiyathura, Thiruvananthapuram &bull; 0471-3191914</span>
       </footer>
 
-      {/* EXACT 1:1 PDF MODAL DOCUMENT VIEWER */}
+      {/* MODAL DOCUMENT & PDF VIEWER */}
       {activeModal !== 'none' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-[#191919] border border-white/20 rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-left">
+          <div className="bg-[#191919] border border-white/20 rounded-xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-left">
             {/* Modal Header */}
-            <div className="bg-black/60 border-b border-white/10 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 bg-[#852929]/30 text-[#852929] rounded border border-[#852929]/50">
-                  {activeModal === 'air' ? <Plane className="w-4 h-4 text-white" /> : <Ship className="w-4 h-4 text-white" />}
+            <div className="bg-black/70 border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-[#852929]/30 text-white rounded border border-[#852929]/50">
+                  {activeModal === 'air' ? <Plane className="w-4 h-4" /> : <Ship className="w-4 h-4" />}
                 </div>
                 <div>
                   <div className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
                     Public Bonded Warehouse Tariff ({activeModal === 'air' ? 'Air Cargo' : 'Sea Cargo'})
                   </div>
-                  <div className="text-[10px] text-[#C1C1C1]">w.e.f - 01/05/2026 &bull; Directorate of Port, Valiyathura</div>
+                  <div className="text-[10px] text-[#C1C1C1]">w.e.f - 01/05/2026 &bull; TRV1U001</div>
                 </div>
               </div>
 
-              {/* Sub-tabs: Rates vs 14 Terms & Conditions */}
+              {/* Viewer Mode Tabs + Download */}
               <div className="flex items-center gap-2">
-                <div className="inline-flex bg-black/40 p-0.5 rounded border border-white/10 text-xs">
+                <div className="inline-flex bg-black/50 p-0.5 rounded border border-white/10 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('pdf')}
+                    className={`px-3 py-1 rounded text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
+                      modalTab === 'pdf' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Official PDF</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setModalTab('rates')}
@@ -103,7 +118,7 @@ export const UnderDevelopmentPage: React.FC = () => {
                       modalTab === 'rates' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
                     }`}
                   >
-                    Tariff Table
+                    Table
                   </button>
                   <button
                     type="button"
@@ -112,14 +127,25 @@ export const UnderDevelopmentPage: React.FC = () => {
                       modalTab === 'terms' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
                     }`}
                   >
-                    General Terms (1-14)
+                    Terms (1-14)
                   </button>
                 </div>
+
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="p-1.5 rounded-lg text-[#C1C1C1] hover:text-white bg-white/5 hover:bg-white/15 transition-colors"
+                  title="Open PDF / Download"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
 
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="p-1.5 rounded-lg text-[#C1C1C1] hover:text-white hover:bg-white/10 transition-colors ml-2"
+                  className="p-1.5 rounded-lg text-[#C1C1C1] hover:text-white hover:bg-white/15 transition-colors ml-1"
                   title="Close document"
                 >
                   <X className="w-5 h-5" />
@@ -127,28 +153,50 @@ export const UnderDevelopmentPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
-              {/* Document Header Metadata from PDF */}
-              <div className="p-3 bg-black/40 rounded-lg border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[11px]">
-                <div className="flex items-center gap-3">
-                  <img src="/logo.png" alt="Gorod Logistics" className="h-9 w-auto" />
-                  <div>
-                    <span className="font-extrabold text-white text-xs block">GOROD LOGISTICS</span>
-                    <span className="text-[#C1C1C1] text-[10px]">A Division of Gorod International Agency Pvt Ltd</span>
+            {/* Modal Body */}
+            <div className="p-3 sm:p-5 overflow-y-auto flex-1 flex flex-col text-xs">
+              {/* TAB 1: EMBEDDED NATIVE PDF VIEWER */}
+              {modalTab === 'pdf' && (
+                <div className="flex-1 w-full flex flex-col min-h-[68vh]">
+                  <iframe
+                    src={pdfUrl}
+                    title="Gorod Logistics Tariff PDF"
+                    className="w-full flex-1 min-h-[68vh] rounded-lg border border-white/10 bg-white"
+                  />
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-[#C1C1C1]">
+                    <span>Official signed Public Bonded Warehouse Tariff document (Pages 1 &amp; 2)</span>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-white hover:text-[#852929] inline-flex items-center gap-1 font-medium"
+                    >
+                      <span>Open in full tab</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
                 </div>
+              )}
 
-                <div className="text-right sm:text-right text-[10px] text-[#C1C1C1] space-y-0.5">
-                  <div><strong>BONDED WAREHOUSE CODE:</strong> TRV1U001 &bull; <strong>BOND NO:</strong> 2002591018</div>
-                  <div>Directorate of Port, Valiyathura, Thiruvananthapuram, 695008</div>
-                  <div>business@gorod.agency &bull; 0471-3191914</div>
-                </div>
-              </div>
-
-              {/* TAB 1: EXACT TARIFF SCHEDULE TABLE */}
+              {/* TAB 2: STRUCTURED HTML RATE TABLE */}
               {modalTab === 'rates' && (
                 <div className="space-y-3">
+                  <div className="p-3 bg-black/40 rounded-lg border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[11px]">
+                    <div className="flex items-center gap-3">
+                      <img src="/logo.png" alt="Gorod Logistics" className="h-9 w-auto" />
+                      <div>
+                        <span className="font-extrabold text-white text-xs block">GOROD LOGISTICS</span>
+                        <span className="text-[#C1C1C1] text-[10px]">A Division of Gorod International Agency Pvt Ltd</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right sm:text-right text-[10px] text-[#C1C1C1] space-y-0.5">
+                      <div><strong>BONDED WAREHOUSE CODE:</strong> TRV1U001 &bull; <strong>BOND NO:</strong> 2002591018</div>
+                      <div>Directorate of Port, Valiyathura, Thiruvananthapuram, 695008</div>
+                      <div>business@gorod.agency &bull; 0471-3191914</div>
+                    </div>
+                  </div>
+
                   <div className="text-center py-1">
                     <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-white">
                       Public Bonded Warehouse Tariff ({activeModal === 'air' ? 'Air Cargo' : 'Sea Cargo'})
@@ -156,8 +204,7 @@ export const UnderDevelopmentPage: React.FC = () => {
                     <span className="text-[11px] text-[#852929] font-bold">w.e.f - 01/05/2026</span>
                   </div>
 
-                  {/* AIR CARGO EXACT PDF TABLE */}
-                  {activeModal === 'air' && (
+                  {activeModal === 'air' ? (
                     <div className="border border-white/15 rounded-lg overflow-hidden bg-black/30">
                       <table className="w-full text-left text-[11px] sm:text-xs">
                         <thead className="bg-[#852929] text-white font-bold text-[11px]">
@@ -241,10 +288,7 @@ export const UnderDevelopmentPage: React.FC = () => {
                         </tbody>
                       </table>
                     </div>
-                  )}
-
-                  {/* SEA CARGO EXACT PDF TABLE */}
-                  {activeModal === 'sea' && (
+                  ) : (
                     <div className="border border-white/15 rounded-lg overflow-hidden bg-black/30">
                       <table className="w-full text-left text-[11px] sm:text-xs">
                         <thead className="bg-[#852929] text-white font-bold text-[11px]">
@@ -335,7 +379,6 @@ export const UnderDevelopmentPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Footnotes from PDF */}
                   <div className="pt-2 text-[11px] text-[#C1C1C1] space-y-1">
                     {activeModal === 'air' && (
                       <div className="text-white font-semibold">
@@ -349,7 +392,7 @@ export const UnderDevelopmentPage: React.FC = () => {
                 </div>
               )}
 
-              {/* TAB 2: GENERAL TERMS AND CONDITIONS (1 to 14) EXACT VERBATIM */}
+              {/* TAB 3: GENERAL TERMS (1 to 14) */}
               {modalTab === 'terms' && (
                 <div className="space-y-3">
                   <div className="text-center py-1 border-b border-white/10 pb-2">
@@ -386,11 +429,6 @@ export const UnderDevelopmentPage: React.FC = () => {
                   </div>
                 </div>
               )}
-
-              {/* PDF Document Signoff Footer */}
-              <div className="pt-3 border-t border-white/10 text-center text-[10px] text-[#C1C1C1]/60">
-                &ldquo;This document has been digitally generated to support environmental sustainability.&rdquo;
-              </div>
             </div>
           </div>
         </div>
