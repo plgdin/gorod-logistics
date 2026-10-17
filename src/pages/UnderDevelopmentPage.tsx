@@ -48,10 +48,6 @@ export const UnderDevelopmentPage: React.FC = () => {
           Website Coming Soon
         </h1>
 
-        <p className="text-xs sm:text-sm text-[#C1C1C1] mt-2">
-          Public Customs-Bonded Warehouse Tariffs (w.e.f 01/05/2026)
-        </p>
-
         {/* Action Buttons to Open Tariffs */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <button
