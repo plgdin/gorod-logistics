@@ -3,11 +3,11 @@ import { Plane, Ship, ShieldCheck, X, FileText, ExternalLink, Download } from 'l
 
 export const UnderDevelopmentPage: React.FC = () => {
   const [activeModal, setActiveModal] = useState<'none' | 'air' | 'sea'>('none');
-  const [modalTab, setModalTab] = useState<'pdf' | 'rates' | 'terms'>('pdf');
+  const [modalTab, setModalTab] = useState<'rates' | 'terms' | 'pdf'>('rates');
 
   const openModal = (type: 'air' | 'sea') => {
     setActiveModal(type);
-    setModalTab('pdf'); // Default to showing the official PDF directly
+    setModalTab('rates'); // Default to showing the Table tab
   };
 
   const closeModal = () => {
@@ -103,16 +103,6 @@ export const UnderDevelopmentPage: React.FC = () => {
                 <div className="inline-flex bg-black/50 p-0.5 rounded border border-white/10 text-xs">
                   <button
                     type="button"
-                    onClick={() => setModalTab('pdf')}
-                    className={`px-3 py-1 rounded text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
-                      modalTab === 'pdf' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Official PDF</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setModalTab('rates')}
                     className={`px-3 py-1 rounded text-[11px] font-semibold transition-colors ${
                       modalTab === 'rates' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
@@ -128,6 +118,16 @@ export const UnderDevelopmentPage: React.FC = () => {
                     }`}
                   >
                     Terms (1-14)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('pdf')}
+                    className={`px-3 py-1 rounded text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
+                      modalTab === 'pdf' ? 'bg-[#852929] text-white' : 'text-[#C1C1C1] hover:text-white'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Official PDF</span>
                   </button>
                 </div>
 
