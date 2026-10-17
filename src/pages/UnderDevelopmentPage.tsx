@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plane, Ship, ShieldCheck, X, FileText, ExternalLink, Download } from 'lucide-react';
+import { Plane, Ship, X, FileText, ExternalLink, Download } from 'lucide-react';
 
 export const UnderDevelopmentPage: React.FC = () => {
   const [activeModal, setActiveModal] = useState<'none' | 'air' | 'sea'>('none');
@@ -21,19 +21,8 @@ export const UnderDevelopmentPage: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#191919] text-white flex flex-col justify-between selection:bg-[#852929] selection:text-white px-4 py-4 sm:px-6 sm:py-6 font-sans relative">
-      {/* Top Header */}
-      <header className="max-w-5xl mx-auto w-full flex items-center justify-between text-xs text-[#C1C1C1]">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#852929]" />
-          <span className="font-semibold tracking-wide text-white/90">
-            TRV1U001 &bull; Bond No: 2002591018
-          </span>
-        </div>
-        <div className="inline-flex items-center gap-2 bg-[#852929]/20 border border-[#852929]/50 px-3 py-1 rounded-full text-[11px] text-white font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#852929] animate-pulse"></span>
-          <span>Under Development</span>
-        </div>
-      </header>
+      {/* Top Spacer */}
+      <div aria-hidden="true" className="h-4"></div>
 
       {/* Main Center Content */}
       <main className="max-w-3xl mx-auto w-full flex flex-col items-center justify-center my-auto text-center">
