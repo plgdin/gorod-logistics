@@ -24,8 +24,8 @@ export const UnderDevelopmentPage: React.FC = () => {
       {/* Top Spacer */}
       <div aria-hidden="true" className="h-4"></div>
 
-      {/* Main Center Content */}
-      <main className="max-w-3xl mx-auto w-full flex flex-col items-center justify-center my-auto text-center">
+      {/* Main Center Content (scaled 125% for desktop) */}
+      <main className="max-w-4xl mx-auto w-full flex flex-col items-center justify-center my-auto text-center transform scale-100 sm:scale-110 md:scale-125 origin-center transition-transform duration-200">
         {/* Logo */}
         <img
           src="/logo.png"
@@ -60,7 +60,7 @@ export const UnderDevelopmentPage: React.FC = () => {
       </main>
 
       {/* Minimal Footer */}
-      <footer className="max-w-5xl mx-auto w-full text-center text-[11px] text-[#C1C1C1]/60 flex flex-col sm:flex-row items-center justify-between gap-1 border-t border-white/10 pt-3">
+      <footer className="max-w-6xl mx-auto w-full text-center text-xs sm:text-sm text-[#C1C1C1]/70 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-white/10 pt-4 pb-2">
         <span>&copy; {new Date().getFullYear()} Gorod Logistics (A Division of Gorod International Agency Pvt Ltd)</span>
         <span>Directorate of Port, Valiyathura, Thiruvananthapuram &bull; 0471-3191914</span>
       </footer>
@@ -68,7 +68,7 @@ export const UnderDevelopmentPage: React.FC = () => {
       {/* MODAL DOCUMENT & PDF VIEWER */}
       {activeModal !== 'none' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-[#191919] border border-white/20 rounded-xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-left">
+          <div className="bg-[#191919] border border-white/20 rounded-xl w-full max-w-5xl xl:max-w-6xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-left">
             {/* Modal Header */}
             <div className="bg-black/70 border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
