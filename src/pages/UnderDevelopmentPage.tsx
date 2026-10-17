@@ -139,7 +139,7 @@ export const UnderDevelopmentPage: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 sm:p-7 md:p-9 overflow-y-auto flex-1 flex flex-col text-sm sm:text-base">
+            <div className="p-4 sm:p-7 md:p-9 overflow-y-auto no-scrollbar flex-1 flex flex-col text-sm sm:text-base">
               {/* TAB 1: EMBEDDED NATIVE PDF VIEWER */}
               {modalTab === 'pdf' && (
                 <div className="flex-1 w-full flex flex-col min-h-[72vh]">
@@ -190,8 +190,8 @@ export const UnderDevelopmentPage: React.FC = () => {
                   </div>
 
                   {activeModal === 'air' ? (
-                    <div className="border border-white/15 rounded-xl overflow-hidden bg-black/40">
-                      <table className="w-full text-left text-sm sm:text-base">
+                    <div className="border border-white/15 rounded-xl overflow-x-auto no-scrollbar bg-black/40">
+                      <table className="w-full text-left text-sm sm:text-base min-w-[500px] sm:min-w-full">
                         <thead className="bg-[#852929] text-white font-bold text-sm sm:text-base">
                           <tr>
                             <th className="py-3.5 px-5 w-14 text-center border-r border-white/20">#</th>
@@ -274,8 +274,8 @@ export const UnderDevelopmentPage: React.FC = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="border border-white/15 rounded-xl overflow-hidden bg-black/40">
-                      <table className="w-full text-left text-sm sm:text-base">
+                    <div className="border border-white/15 rounded-xl overflow-x-auto no-scrollbar bg-black/40">
+                      <table className="w-full text-left text-sm sm:text-base min-w-[500px] sm:min-w-full">
                         <thead className="bg-[#852929] text-white font-bold text-sm sm:text-base">
                           <tr>
                             <th className="py-3.5 px-5 w-14 text-center border-r border-white/20">#</th>
