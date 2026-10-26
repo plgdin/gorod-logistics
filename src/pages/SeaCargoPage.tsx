@@ -22,7 +22,7 @@ export const SeaCargoPage: React.FC = () => {
     <>
       <SEO
         title="Public Bonded Warehouse Tariff — Sea Cargo"
-        description="Official published sea freight bonded warehouse tariff for Ankit Logistics in Thiruvananthapuram, Kerala. ₹150/m²/wk covered storage, container minimums, and live calculator."
+        description="Official published sea freight bonded warehouse tariff for Gorod Logistics in Thiruvananthapuram, Kerala. ₹150/m²/wk covered storage, container minimums, and live calculator."
       />
 
       <PageHeader

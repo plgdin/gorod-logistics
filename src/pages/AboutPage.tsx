@@ -16,13 +16,13 @@ export const AboutPage: React.FC = () => {
   return (
     <>
       <SEO
-        title="About Ankit Logistics — Customs Bonded Freight &amp; Warehousing"
-        description="Learn about Ankit Logistics, public customs-bonded warehousing and air/sea freight logistics provider operating in Thiruvananthapuram, Kerala, India."
+        title="About Gorod Logistics — Customs Bonded Freight &amp; Warehousing"
+        description="Learn about Gorod Logistics, public customs-bonded warehousing and air/sea freight logistics provider operating in Thiruvananthapuram, Kerala, India."
       />
 
       <PageHeader
         badge="Company Overview"
-        title="About Ankit Logistics"
+        title="About Gorod Logistics"
         description="Dedicated public customs-bonded warehousing and multi-modal cargo handling operations based in Thiruvananthapuram, Kerala."
         breadcrumbs={[
           { label: 'Home', href: '/' },
@@ -41,7 +41,7 @@ export const AboutPage: React.FC = () => {
               Transparent, High-Integrity Customs-Bonded Warehousing in Kerala
             </h2>
             <p className="text-base text-slate-600 leading-relaxed">
-              <strong>Ankit Logistics</strong> operates as a public customs-bonded warehouse in Thiruvananthapuram, Kerala, established to serve the evolving logistical requirements of Indian importers, customs brokers, and international freight partners.
+              <strong>Gorod Logistics</strong> operates as a public customs-bonded warehouse in Thiruvananthapuram, Kerala, established to serve the evolving logistical requirements of Indian importers, customs brokers, and international freight partners.
             </p>
             <p className="text-base text-slate-600 leading-relaxed">
               By maintaining published, transparent tariffs for both air cargo and sea freight consignments, we provide commercial predictability to trading enterprises—allowing importers to defer customs duty payments legitimately until consignments are cleared for domestic manufacturing or distribution.
@@ -74,7 +74,7 @@ export const AboutPage: React.FC = () => {
                   AL
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-lg text-white">ANKIT LOGISTICS</h3>
+                  <h3 className="font-extrabold text-lg text-white">GOROD LOGISTICS</h3>
                   <p className="text-xs text-slate-400">Public Customs-Bonded Operator</p>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export const AboutPage: React.FC = () => {
               Future ERP Platform Architecture (Phase 2 &amp; Beyond)
             </h3>
             <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-              This public website represents <strong>Phase 1</strong> of Ankit Logistics' digital ecosystem. Our engineering architecture is designed for future modular integration of full-lifecycle warehouse operations without refactoring core components:
+              This public website represents <strong>Phase 1</strong> of Gorod Logistics' digital ecosystem. Our engineering architecture is designed for future modular integration of full-lifecycle warehouse operations without refactoring core components:
             </p>
           </div>
 

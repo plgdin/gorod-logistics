@@ -8,7 +8,7 @@ export const NotFoundPage: React.FC = () => {
     <>
       <SEO
         title="Page Not Found (404)"
-        description="The requested page could not be found on Ankit Logistics web portal."
+        description="The requested page could not be found on Gorod Logistics web portal."
       />
 
       <div className="min-h-[70vh] flex items-center justify-center py-20 px-4 sm:px-6 lg:px-8">

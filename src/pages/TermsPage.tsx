@@ -9,7 +9,7 @@ export const TermsPage: React.FC = () => {
     <>
       <SEO
         title="Warehouse Terms &amp; Conditions (Draft)"
-        description="Statutory terms and conditions governing customs-bonded storage and handling operations at Ankit Logistics."
+        description="Statutory terms and conditions governing customs-bonded storage and handling operations at Gorod Logistics."
       />
 
       <PageHeader
@@ -50,14 +50,14 @@ export const TermsPage: React.FC = () => {
         <section className="space-y-4 pt-6 border-t border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">Customs Act Jurisdiction</h2>
           <p>
-            All goods deposited in Ankit Logistics bonded premises remain under the joint custody of the Customs authorities and the warehouse keeper pursuant to the Customs Act 1962 and relevant Central Board of Indirect Taxes and Customs (CBIC) notifications. Handover, sampling, destuffing, and release require appropriate customs orders.
+            All goods deposited in Gorod Logistics bonded premises remain under the joint custody of the Customs authorities and the warehouse keeper pursuant to the Customs Act 1962 and relevant Central Board of Indirect Taxes and Customs (CBIC) notifications. Handover, sampling, destuffing, and release require appropriate customs orders.
           </p>
         </section>
 
         <section className="space-y-4 pt-6 border-t border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">Insurance &amp; Liability Exclusions</h2>
           <p>
-            The published tariff includes an insurance reference ("INR 0.20 Paise/1000 INR of Cargo Value") that is subject to business denomination confirmation. Consignees are required to verify insurance coverage with their marine underwriters or obtain formal written confirmation from Ankit Logistics prior to consignment deposition.
+            The published tariff includes an insurance reference ("INR 0.20 Paise/1000 INR of Cargo Value") that is subject to business denomination confirmation. Consignees are required to verify insurance coverage with their marine underwriters or obtain formal written confirmation from Gorod Logistics prior to consignment deposition.
           </p>
         </section>
       </div>

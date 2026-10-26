@@ -74,7 +74,7 @@ export const ContactPage: React.FC = () => {
     <>
       <SEO
         title="Contact &amp; Consignment Enquiries"
-        description="Submit your customs-bonded cargo enquiry, space reservation, or quotation request to Ankit Logistics in Thiruvananthapuram, Kerala."
+        description="Submit your customs-bonded cargo enquiry, space reservation, or quotation request to Gorod Logistics in Thiruvananthapuram, Kerala."
       />
 
       <PageHeader
@@ -96,7 +96,7 @@ export const ContactPage: React.FC = () => {
                 Facility &amp; Coordination
               </span>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Ankit Logistics Operations
+                Gorod Logistics Operations
               </h2>
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
                 Operating under Indian Customs regulations, our warehouse reception coordinates bonded cargo admissions, destuffing, and customs release handovers.
@@ -384,7 +384,7 @@ export const ContactPage: React.FC = () => {
                   </button>
 
                   <div className="text-[11px] text-slate-400 text-center">
-                    Submission processes locally in Phase 1 demo mode. Official proforma agreements are executed directly with Ankit Logistics customs desk.
+                    Submission processes locally in Phase 1 demo mode. Official proforma agreements are executed directly with Gorod Logistics customs desk.
                   </div>
                 </form>
               )}

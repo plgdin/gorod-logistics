@@ -19,7 +19,7 @@ export const FacilitiesPage: React.FC = () => {
     <>
       <SEO
         title="Warehouse Facilities &amp; Equipment"
-        description="Inspect Ankit Logistics customs-bonded warehouse infrastructure, covered bay storage, 3 MT forklift equipment, and cargo handling operations in Thiruvananthapuram."
+        description="Inspect Gorod Logistics customs-bonded warehouse infrastructure, covered bay storage, 3 MT forklift equipment, and cargo handling operations in Thiruvananthapuram."
       />
 
       <PageHeader

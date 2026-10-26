@@ -11,17 +11,10 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand & Mission */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black tracking-wider text-base">
-                AL
-              </div>
-              <span className="text-xl font-extrabold tracking-tight text-white">
-                ANKIT LOGISTICS
-              </span>
-            </div>
+            <img src="/logo-cropped.png" alt="Gorod Logistics" className="h-16 w-auto object-contain object-left" />
 
             <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-              Premier public customs-bonded warehousing and integrated freight operations serving air cargo and sea freight consignments in Thiruvananthapuram, Kerala.
+              Public customs-bonded warehousing and integrated freight operations serving air cargo and sea freight consignments in Thiruvananthapuram, Kerala.
             </p>
 
             <div className="pt-2 text-xs text-slate-400 space-y-1.5">
@@ -132,7 +125,7 @@ export const Footer: React.FC = () => {
         {/* Legal Disclaimer & Copyright */}
         <div className="mt-12 pt-8 border-t border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            &copy; {new Date().getFullYear()} Ankit Logistics. All rights reserved. Operating in Thiruvananthapuram, Kerala, India.
+            &copy; {new Date().getFullYear()} Gorod Logistics. All rights reserved. Operating in Thiruvananthapuram, Kerala, India.
           </div>
           <div className="text-center md:text-right text-slate-400 max-w-xl">
             Tariffs published as per Public Bonded Warehouse Tariff documentation. GST and statutory officer fees extra.

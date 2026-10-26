@@ -8,7 +8,7 @@ export const PrivacyPage: React.FC = () => {
     <>
       <SEO
         title="Privacy Policy (Draft)"
-        description="Privacy policy and data governance practices of Ankit Logistics customs-bonded warehousing operations."
+        description="Privacy policy and data governance practices of Gorod Logistics customs-bonded warehousing operations."
       />
 
       <PageHeader
@@ -34,7 +34,7 @@ export const PrivacyPage: React.FC = () => {
         <section className="space-y-3">
           <h2 className="text-xl font-bold text-slate-900">1. Information Collection</h2>
           <p>
-            Ankit Logistics collects commercial information necessary to execute customs warehousing operations under the Customs Act 1962. This includes Importer-Exporter Codes (IEC), Bills of Entry details, consignee entity names, authorized customs broker contact details, cargo packing manifests, and assessable value declarations.
+            Gorod Logistics collects commercial information necessary to execute customs warehousing operations under the Customs Act 1962. This includes Importer-Exporter Codes (IEC), Bills of Entry details, consignee entity names, authorized customs broker contact details, cargo packing manifests, and assessable value declarations.
           </p>
         </section>
 
@@ -55,7 +55,7 @@ export const PrivacyPage: React.FC = () => {
         <section className="space-y-3">
           <h2 className="text-xl font-bold text-slate-900">4. Contact &amp; Governance</h2>
           <p>
-            Inquiries regarding operational privacy and consignment records should be directed to the Ankit Logistics administrative desk in Thiruvananthapuram, Kerala.
+            Inquiries regarding operational privacy and consignment records should be directed to the Gorod Logistics administrative desk in Thiruvananthapuram, Kerala.
           </p>
         </section>
       </div>

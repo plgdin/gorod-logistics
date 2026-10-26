@@ -22,7 +22,7 @@ export const AirCargoPage: React.FC = () => {
     <>
       <SEO
         title="Public Bonded Warehouse Tariff — Air Cargo"
-        description="Official published air cargo bonded warehouse tariff for Ankit Logistics in Thiruvananthapuram, Kerala. Per-kg rates, minimum consignment charges, and live calculator."
+        description="Official published air cargo bonded warehouse tariff for Gorod Logistics in Thiruvananthapuram, Kerala. Per-kg rates, minimum consignment charges, and live calculator."
       />
 
       <PageHeader
