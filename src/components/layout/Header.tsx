@@ -19,6 +19,7 @@ export const Header: React.FC = () => {
     ['/facilities', 'Facilities'],
     ['/about', 'About us'],
     ['/contact', 'Contact'],
+    ['/login', 'CBW Portal'],
   ] as const;
 
   return (

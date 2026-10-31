@@ -11,7 +11,18 @@ import { PrivacyPage } from '../pages/PrivacyPage';
 import { TermsPage } from '../pages/TermsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
+import { LoginPage } from '../pages/LoginPage';
+import { AdminDashboard } from '../pages/AdminDashboard';
+
 export const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    path: '/admin',
+    element: <AdminDashboard />,
+  },
   {
     path: '/',
     element: <MainLayout />,
@@ -59,3 +70,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
