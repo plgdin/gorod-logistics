@@ -12,9 +12,16 @@ export const isSupabaseConfigured = Boolean(
   !supabaseAnonKey.includes('your-anon-key-here')
 );
 
+if (!isSupabaseConfigured && import.meta.env.PROD) {
+  // Fail loudly at startup rather than silently pointing at a fake backend.
+  console.error(
+    'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the production environment.'
+  );
+}
+
 export const supabase = createClient(
-  isSupabaseConfigured ? supabaseUrl : 'https://placeholder.supabase.co',
-  isSupabaseConfigured ? supabaseAnonKey : 'placeholder-key',
+  isSupabaseConfigured ? supabaseUrl : 'https://unconfigured.invalid',
+  isSupabaseConfigured ? supabaseAnonKey : 'unconfigured',
   {
     auth: {
       persistSession: true,

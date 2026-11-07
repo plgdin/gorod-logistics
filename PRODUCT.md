@@ -19,7 +19,7 @@ The platform combines a public-facing logistics portal & tariff engine with an i
 1. **1:1 BOE to Job Ratio (SOP 4.1.1)**: Every Bill of Entry (Into-Bond BOE) must map to exactly one unique Job Reference (`GL-JOB-YYYY-XXXX`).
 2. **Weighbridge Discrepancy Protocol (SOP 4.1.8)**: Any variance between declared manifest gross weight and actual physical weighbridge scale weight exceeding ±5 kg immediately triggers a statutory hold and Customs Bond Officer notification requirement.
 3. **Outward Removal & Gate Clearance (SOP 4.2.6)**: Cargo cannot leave the bonded premises without dual clearance: Accounts NDC and Customs clearance, unlocking a unique Outpass Gatepass Number (`GL-GP-YYYY-XXXX`).
-4. **Data Reliability**: Operates against Supabase PostgreSQL with Row Level Security (RLS) and real-time health telemetry, falling back to local demo fixtures for training and offline audits.
+4. **Data Reliability**: Operates against Supabase PostgreSQL with Row Level Security (RLS), role-checked RPCs, an append-only audit trail, and real health telemetry. The production desk never falls back to demo fixtures; if the backend is unavailable or a staff profile has no statutory role, records are not loaded or written.
 
 ## Platform & Stack
 

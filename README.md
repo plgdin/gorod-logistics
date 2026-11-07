@@ -36,25 +36,30 @@ The operational dashboard (`/admin`) and SOP manual (`/sop`) are backed by Supab
    VITE_SUPABASE_URL=https://<project-ref>.supabase.co
    VITE_SUPABASE_ANON_KEY=<anon-key>
    ```
-2. Open the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run
-   `supabase_live_setup.sql` once. This is idempotent and it:
-   - adds the RLS policies that `supabase_sop_schema.sql` was missing,
-   - auto-creates a `profiles` row for every new auth user,
-   - creates the `dashboard_jobs` view and `create_inward_job()` RPC,
-   - creates six confirmed demo accounts,
-   - seeds demo customers, jobs, receipts and one cleared removal.
-3. Sign in at `/login` with any demo email and password `Gorod@2026`:
-   `keeper@`, `compliance@`, `operations@`, `security@`, `accounts@gorodlogistics.com`,
-   or `bond.officer@customs.gov.in`.
-4. The **Database Sync** card on the dashboard now performs a real health check.
-   Writes go to PostgreSQL; refresh keeps your data.
+2. Open the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run,
+   in order:
+   1. `supabase_sop_schema.sql`
+   2. `supabase_live_setup.sql`
+   3. `supabase_production_hardening.sql`
+3. Provision real staff accounts through Supabase Auth and set each user's
+   statutory `role` in `profiles` (`warehouse_keeper`, `admin_compliance`,
+   `warehouse_manager`, `security_team`, `accounts_team`,
+   `customs_bond_officer`). The role in the profile is the authority used by the
+   database RLS policies and RPCs.
+4. The operations desk performs a real database health check and shows the
+   result in the station header. There is no local demo fallback in production:
+   if Supabase is not configured or the account has no profile role, the desk
+   refuses to load records.
 
-If the SQL has not been run yet, the dashboard still works in **Local Demo mode**
-(the `Local Demo` button on the login page) but changes are not persisted.
+`supabase_live_setup.sql` deliberately creates no demo users and no demo
+consignments. For local development only, `supabase_demo_seed.sql` creates six
+shared-password test accounts and three sample consignments. Never run that seed
+against production.
 
 > Security note: the anon key is safe to ship in the browser. Never put the
-> `service_role` key in `VITE_*` variables. Current RLS grants full access to any
-> authenticated staff account; per-role policies are a follow-up hardening step.
+> `service_role` key in `VITE_*` variables. Direct writes to statutory tables are
+> denied; every weighment, removal, NDC, outpass, gate-out, notification and hold
+> resolution goes through a role-checked RPC and writes an `audit_logs` row.
 
 ---
 

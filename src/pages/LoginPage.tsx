@@ -1,46 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth, PRESET_USERS, UserRole } from '../features/auth/AuthContext';
+import { useAuth } from '../features/auth/AuthContext';
 import { SEO } from '../components/ui/SEO';
+import { CBW_DETAILS } from '../features/sop/sopData';
 
-const ROLE_OPTIONS: {
-  role: UserRole;
+const AUTHORISED_POSTS: {
   title: string;
   sopRef: string;
   desc: string;
 }[] = [
   {
-    role: 'warehouse_keeper',
     title: 'Warehouse Keeper',
     sopRef: '3.1 / 4.1.3',
     desc: 'Warehouse custody, Customs liaison, Space Certificate signing, ±5 kg escalation decisions and ICEGATE approvals.',
   },
   {
-    role: 'admin_compliance',
     title: 'Admin Team — Compliance',
     sopRef: '3.2 / 4.1.1',
     desc: 'Customer onboarding, BOE to Job creation, Customs email dispatch, GRA issuance and draft monthly returns.',
   },
   {
-    role: 'warehouse_manager',
     title: 'Warehouse Manager — Ops',
     sopRef: '3.3 / 4.1.7',
     desc: 'Receipt tally, nine-point checklist, weight delta logging, barcode and bin storage, VAS Section 64 execution.',
   },
   {
-    role: 'security_team',
     title: 'Security Team — Main Gate',
     sopRef: '3.4 / 4.1.11',
     desc: 'Inward and outward register logging, vehicle inspection, driver ID checks and Outpass gate-out control.',
   },
   {
-    role: 'accounts_team',
     title: 'Accounts Team — Finance',
     sopRef: '3.5 / 4.2.6',
     desc: 'Tariff billing, dues clearance and No-Due Certificate generation unlocking Outpass creation.',
   },
   {
-    role: 'customs_bond_officer',
     title: 'Customs Bond Officer',
     sopRef: '3.6 / CBIC',
     desc: 'External oversight, receipt and removal notifications, OTL inspection supervision and discrepancy orders.',
@@ -48,17 +42,15 @@ const ROLE_OPTIONS: {
 ];
 
 const BOND_REGISTER = [
-  { label: 'Warehouse', value: 'TRV1U001' },
-  { label: 'Bond', value: '2002591018' },
+  { label: 'Warehouse', value: CBW_DETAILS.warehouseCode },
+  { label: 'Bond', value: CBW_DETAILS.bondNumber },
   { label: 'Port code', value: 'INTRV1' },
   { label: 'Jurisdiction', value: 'Thiruvananthapuram' },
-  { label: 'Bond officer', value: 'Supt. K. Sharma' },
 ];
 
 export const LoginPage: React.FC = () => {
   const {
     login,
-    enterDemoMode,
     isSupabaseConfigured,
     authMode,
     currentUser,
@@ -66,9 +58,8 @@ export const LoginPage: React.FC = () => {
     clearError,
   } = useAuth();
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<UserRole>('warehouse_keeper');
-  const [emailInput, setEmailInput] = useState<string>(PRESET_USERS.warehouse_keeper.email);
-  const [password, setPassword] = useState<string>('');
+  const [emailInput, setEmailInput] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,32 +69,18 @@ export const LoginPage: React.FC = () => {
     }
   }, [authMode, currentUser, navigate]);
 
-  const selectedUser = PRESET_USERS[selectedRole];
-  const selectedOption = ROLE_OPTIONS.find((option) => option.role === selectedRole)!;
-
-  const handleRoleSelect = (role: UserRole) => {
-    setSelectedRole(role);
-    setEmailInput(PRESET_USERS[role].email);
-    clearError();
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     setSubmitting(true);
     try {
-      await login(emailInput, password, selectedRole);
+      await login(emailInput, password);
       navigate('/admin');
     } catch {
       // The context exposes a user-friendly message via `error`.
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleDirectDemoAccess = (role: UserRole) => {
-    enterDemoMode(role);
-    navigate('/admin');
   };
 
   return (
@@ -121,7 +98,9 @@ export const LoginPage: React.FC = () => {
             <div className="text-[11px] leading-relaxed text-[#c1c1c1]">
               Customs Bonded Warehouse
               <br />
-              <span className="text-[#8a8a8a]">TRV1U001 · Bond 2002591018</span>
+              <span className="text-[#8a8a8a]">
+                {CBW_DETAILS.warehouseCode} · Bond {CBW_DETAILS.bondNumber}
+              </span>
             </div>
           </div>
 
@@ -132,7 +111,7 @@ export const LoginPage: React.FC = () => {
                   isSupabaseConfigured ? 'bg-white' : 'bg-[#852929]'
                 }`}
               />
-              {isSupabaseConfigured ? 'Directory configured' : 'Local demo only'}
+              {isSupabaseConfigured ? 'Directory configured' : 'Directory not configured'}
             </span>
             <Link
               to="/"
@@ -180,82 +159,41 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <p className="mt-4 max-w-[62ch] text-xs leading-relaxed text-[#c1c1c1]">
-            Select your assigned post. Credentials are checked against the bonded-warehouse
-            directory.
+            Sign in with the staff account provisioned by the warehouse keeper. Your assigned
+            post and statutory authority are loaded from your staff profile.
           </p>
 
           <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-12">
             <section aria-labelledby="post-label">
               <div className="flex items-baseline justify-between border-b border-white/15 pb-2">
                 <h2 id="post-label" className="text-[11px] font-semibold text-white">
-                  Assigned post
+                  Authorised posts
                 </h2>
                 <span className="text-[10px] text-[#8a8a8a]">SOP Section 3</span>
               </div>
 
-              <div role="radiogroup" aria-labelledby="post-label">
-                {ROLE_OPTIONS.map((option, index) => {
-                  const active = selectedRole === option.role;
-                  const officer = PRESET_USERS[option.role];
-                  return (
-                    <label
-                      key={option.role}
-                      className={`grid cursor-pointer grid-cols-[28px_minmax(0,1fr)] items-center gap-x-4 border-b border-white/10 px-2 py-2.5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-white sm:grid-cols-[28px_minmax(0,1fr)_92px] ${
-                        active ? 'bg-[#852929]' : 'hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="statutory-post"
-                        value={option.role}
-                        checked={active}
-                        onChange={() => handleRoleSelect(option.role)}
-                        className="sr-only"
-                      />
-                      <span
-                        className={`text-[11px] tabular-nums ${
-                          active ? 'text-white/85' : 'text-[#8a8a8a]'
-                        }`}
-                      >
-                        {String(index + 1).padStart(2, '0')}
+              <div className="divide-y divide-white/10">
+                {AUTHORISED_POSTS.map((option, index) => (
+                  <div
+                    key={option.title}
+                    className="grid grid-cols-[28px_minmax(0,1fr)_92px] items-start gap-x-4 px-2 py-2.5"
+                  >
+                    <span className="pt-0.5 text-[11px] tabular-nums text-[#8a8a8a]">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-semibold text-[#e8e8e8]">
+                        {option.title}
                       </span>
-                      <span className="min-w-0">
-                        <span
-                          className={`block truncate text-[13px] font-semibold ${
-                            active ? 'text-white' : 'text-[#e8e8e8]'
-                          }`}
-                        >
-                          {option.title}
-                        </span>
-                        <span
-                          className={`block truncate text-[10px] ${
-                            active ? 'text-white/85' : 'text-[#8a8a8a]'
-                          }`}
-                        >
-                          {officer.full_name} · {officer.badge_number}
-                        </span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-[#8a8a8a]">
+                        {option.desc}
                       </span>
-                      <span
-                        className={`hidden text-right text-[10px] tabular-nums sm:block ${
-                          active ? 'text-white/85' : 'text-[#8a8a8a]'
-                        }`}
-                      >
-                        {option.sopRef}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4">
-                <p className="text-[10px] text-[#8a8a8a]">Selected post</p>
-                <p className="mt-1 text-[12px] text-[#e8e8e8]">
-                  {selectedUser.full_name} · {selectedUser.badge_number}
-                </p>
-                <p className="mt-0.5 text-[11px] text-[#8a8a8a]">{selectedUser.department}</p>
-                <p className="mt-2 max-w-[62ch] text-[11px] leading-relaxed text-[#c1c1c1]">
-                  {selectedOption.desc}
-                </p>
+                    </span>
+                    <span className="hidden pt-0.5 text-right text-[10px] tabular-nums text-[#8a8a8a] sm:block">
+                      {option.sopRef}
+                    </span>
+                  </div>
+                ))}
               </div>
             </section>
 
@@ -284,7 +222,8 @@ export const LoginPage: React.FC = () => {
                       if (error) clearError();
                     }}
                     autoComplete="username"
-                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#8a8a8a] focus:border-white focus:outline-none focus:ring-0"
+                    placeholder="name@gorodlogistics.com"
+                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#6f6f6f] focus:border-white focus:outline-none focus:ring-0"
                     required
                   />
                 </div>
@@ -312,20 +251,20 @@ export const LoginPage: React.FC = () => {
                     }}
                     autoComplete="current-password"
                     placeholder="Enter your passcode"
-                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#8a8a8a] focus:border-white focus:outline-none focus:ring-0"
+                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#6f6f6f] focus:border-white focus:outline-none focus:ring-0"
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPassword('Gorod@2026');
-                      clearError();
-                    }}
-                    className="mt-2 text-[10px] text-[#8a8a8a] underline decoration-white/20 underline-offset-4 transition-colors hover:text-[#c1c1c1] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                  >
-                    Use the demo password
-                  </button>
                 </div>
+
+                {!isSupabaseConfigured && (
+                  <div
+                    role="alert"
+                    className="border border-[#852929] bg-[#2a1414] px-3 py-2.5 text-[11px] leading-relaxed text-[#f0c9c9]"
+                  >
+                    The authentication directory is not configured. Set the Supabase URL and
+                    anon key in the deployment environment before signing in.
+                  </div>
+                )}
 
                 {error && (
                   <div
@@ -339,23 +278,15 @@ export const LoginPage: React.FC = () => {
                 <div className="space-y-3 pt-1">
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !isSupabaseConfigured}
                     className="w-full bg-[#852929] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#9a3232] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting ? 'Checking credentials…' : 'Sign in'}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDirectDemoAccess(selectedRole)}
-                    disabled={submitting}
-                    className="w-full border border-white/15 px-5 py-2.5 text-[11px] font-semibold text-[#c1c1c1] transition-colors hover:border-white/30 hover:text-white focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Use a local demo session
-                  </button>
-
                   <p className="text-[10px] leading-relaxed text-[#8a8a8a]">
-                    Local demo runs in this browser only. No records are written to the database.
+                    Access is restricted to authorised Gorod Logistics staff and Customs
+                    officers. Contact the warehouse keeper if you need an account.
                   </p>
                 </div>
               </form>

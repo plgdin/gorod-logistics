@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { CBW_DETAILS } from '../features/sop/sopData';
 
 export type JobStatus =
   | 'Enquiry'
@@ -9,7 +10,10 @@ export type JobStatus =
   | 'Binned & GRA Issued'
   | 'Removal Requested'
   | 'NDC Cleared'
+  | 'Outpass Issued'
   | 'Gate Out Closed';
+
+export type RemovalType = 'home_consumption' | 're_export' | 'warehouse_transfer';
 
 export interface DashboardJob {
   id: string;
@@ -22,12 +26,34 @@ export interface DashboardJob {
   cargoDesc: string;
   packages: number;
   declaredWeightKg: number;
+
+  receiptId?: string;
   actualWeightKg?: number;
+  actualPackageCount?: number;
   weightVarianceKg?: number;
   escalationTriggered: boolean;
+  escalationNotifiedAt?: string;
+  escalationResolved: boolean;
+  vehicleRegistration?: string;
+  driverName?: string;
+  otlNumber?: string;
+  cargoConditionNotes?: string;
+
   assignedBin?: string;
   status: JobStatus;
   ndcCleared: boolean;
+
+  removalId?: string;
+  removalNumber?: string;
+  removalStatus?: string;
+  removalType?: RemovalType;
+  ndcNumber?: string;
+  paymentCleared?: boolean;
+  invoiceNumber?: string;
+  invoiceAmount?: number;
+  requestedPackageCount?: number;
+  requestedWeightKg?: number;
+  requestedEtd?: string;
   outpassNumber?: string;
 }
 
@@ -43,27 +69,70 @@ interface DashboardJobRow {
   packages: number;
   declared_weight_kg: number;
   job_status: string;
+
+  receipt_id: string | null;
   actual_weight_kg: number | null;
+  actual_package_count: number | null;
   weight_variance_kg: number | null;
   escalation_triggered: boolean;
+  weight_escalation_customs_email_sent: string | null;
+  weight_escalation_resolved: boolean | null;
+  vehicle_registration: string | null;
+  driver_name: string | null;
+  otl_number: string | null;
+  cargo_condition_notes: string | null;
+
   ndc_cleared: boolean;
   outpass_number: string | null;
   removal_status: string | null;
+
+  removal_id: string | null;
+  removal_number: string | null;
+  removal_type: RemovalType | null;
+  ndc_number: string | null;
+  payment_cleared: boolean | null;
+  invoice_number: string | null;
+  invoice_amount: number | null;
+  requested_package_count: number | null;
+  requested_weight_kg: number | null;
+  requested_etd: string | null;
+
   assigned_bin: string | null;
+  created_at: string;
 }
 
-function mapStatus(row: DashboardJobRow): JobStatus {
-  if (row.removal_status === 'gate_exited' || row.removal_status === 'removal_closed') {
-    return 'Gate Out Closed';
-  }
-  if (row.ndc_cleared || row.removal_status === 'ndc_cleared') {
-    return 'NDC Cleared';
-  }
-  if (row.escalation_triggered || row.job_status === 'weight_escalation_hold') {
+export interface JobStatusFields {
+  jobStatus: string;
+  escalationTriggered: boolean;
+  escalationResolved: boolean;
+  removalStatus?: string | null;
+  outpassNumber?: string | null;
+  ndcNumber?: string | null;
+  removalId?: string | null;
+}
+
+export function deriveJobStatus(fields: JobStatusFields): JobStatus {
+  const removalClosed =
+    fields.removalStatus === 'gate_exited' ||
+    fields.removalStatus === 'removal_closed';
+
+  if (fields.escalationTriggered && !fields.escalationResolved) {
     return 'Weight Escalated';
   }
+  if (removalClosed) {
+    return 'Gate Out Closed';
+  }
+  if (fields.outpassNumber) {
+    return 'Outpass Issued';
+  }
+  if (fields.ndcNumber) {
+    return 'NDC Cleared';
+  }
+  if (fields.removalId) {
+    return 'Removal Requested';
+  }
 
-  switch (row.job_status) {
+  switch (fields.jobStatus) {
     case 'space_cert_issued':
     case 'eta_notified':
       return 'Space Cert Issued';
@@ -73,6 +142,8 @@ function mapStatus(row: DashboardJobRow): JobStatus {
     case 'checklist_completed':
     case 'unloaded_and_weighed':
       return 'Inspection Passed';
+    case 'weight_escalation_hold':
+      return 'Weight Escalated';
     case 'binned_and_barcoded':
     case 'gra_issued':
     case 'receipt_closed':
@@ -80,6 +151,18 @@ function mapStatus(row: DashboardJobRow): JobStatus {
     default:
       return 'Enquiry';
   }
+}
+
+function mapStatus(row: DashboardJobRow): JobStatus {
+  return deriveJobStatus({
+    jobStatus: row.job_status,
+    escalationTriggered: Boolean(row.escalation_triggered),
+    escalationResolved: Boolean(row.weight_escalation_resolved),
+    removalStatus: row.removal_status,
+    outpassNumber: row.outpass_number,
+    ndcNumber: row.ndc_number,
+    removalId: row.removal_id,
+  });
 }
 
 function mapRow(row: DashboardJobRow): DashboardJob {
@@ -94,34 +177,91 @@ function mapRow(row: DashboardJobRow): DashboardJob {
     cargoDesc: row.cargo_description,
     packages: row.packages,
     declaredWeightKg: Number(row.declared_weight_kg),
+
+    receiptId: row.receipt_id || undefined,
     actualWeightKg:
       row.actual_weight_kg === null ? undefined : Number(row.actual_weight_kg),
+    actualPackageCount:
+      row.actual_package_count === null ? undefined : Number(row.actual_package_count),
     weightVarianceKg:
       row.weight_variance_kg === null ? undefined : Number(row.weight_variance_kg),
     escalationTriggered: Boolean(row.escalation_triggered),
+    escalationNotifiedAt: row.weight_escalation_customs_email_sent || undefined,
+    escalationResolved: Boolean(row.weight_escalation_resolved),
+    vehicleRegistration: row.vehicle_registration || undefined,
+    driverName: row.driver_name || undefined,
+    otlNumber: row.otl_number || undefined,
+    cargoConditionNotes: row.cargo_condition_notes || undefined,
+
     assignedBin: row.assigned_bin || undefined,
     status: mapStatus(row),
     ndcCleared: Boolean(row.ndc_cleared),
+
+    removalId: row.removal_id || undefined,
+    removalNumber: row.removal_number || undefined,
+    removalStatus: row.removal_status || undefined,
+    removalType: row.removal_type || undefined,
+    ndcNumber: row.ndc_number || undefined,
+    paymentCleared: row.payment_cleared ?? undefined,
+    invoiceNumber: row.invoice_number || undefined,
+    invoiceAmount:
+      row.invoice_amount === null ? undefined : Number(row.invoice_amount),
+    requestedPackageCount:
+      row.requested_package_count === null
+        ? undefined
+        : Number(row.requested_package_count),
+    requestedWeightKg:
+      row.requested_weight_kg === null ? undefined : Number(row.requested_weight_kg),
+    requestedEtd: row.requested_etd || undefined,
     outpassNumber: row.outpass_number || undefined,
   };
 }
 
-function friendlyError(message: string, fallback: string): Error {
+function friendlyError(
+  message: string,
+  fallback: string,
+  code?: string
+): Error {
   if (
     message.includes('does not exist') ||
     message.includes('schema cache') ||
     message.includes('Could not find the table')
   ) {
     return new Error(
-      'Database setup is incomplete. Run supabase_live_setup.sql in the Supabase SQL Editor, then refresh.'
+      'Database setup is incomplete. Run supabase_live_setup.sql and supabase_production_hardening.sql in the Supabase SQL Editor, then refresh.'
     );
   }
   if (message.includes('row-level security')) {
     return new Error(
-      'The database blocked this action. Sign in with a seeded account (run supabase_live_setup.sql) or use Local Demo mode.'
+      'Your staff role is not authorised for this action. Contact the warehouse keeper.'
     );
   }
+  if (
+    code === 'PGRST202' ||
+    message.includes('Could not find the function') ||
+    message.includes('function public.')
+  ) {
+    return new Error(
+      'Database functions are not installed. Run supabase_production_hardening.sql in the Supabase SQL Editor, then refresh.'
+    );
+  }
+  if (code === '23505') {
+    if (message.includes('boe_number')) {
+      return new Error(
+        'This Bill of Entry already has a job. SOP 4.1.1 requires exactly one job per BOE.'
+      );
+    }
+    return new Error('A record with this reference already exists.');
+  }
   return new Error(message || fallback);
+}
+
+function errorFrom(
+  error: { message: string; code?: string } | null,
+  fallback: string
+): Error | null {
+  if (!error) return null;
+  return friendlyError(error.message, fallback, error.code);
 }
 
 export async function fetchDashboardJobs(): Promise<DashboardJob[]> {
@@ -130,144 +270,241 @@ export async function fetchDashboardJobs(): Promise<DashboardJob[]> {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) {
-    throw friendlyError(error.message, 'Could not load jobs.');
-  }
+  const mappedError = errorFrom(error, 'Could not load jobs.');
+  if (mappedError) throw mappedError;
 
   return ((data ?? []) as DashboardJobRow[]).map(mapRow);
 }
 
 export interface CreateJobInput {
   customerName: string;
+  iecCode: string;
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
+  addressLine: string;
+  city: string;
   boeNumber: string;
+  boeDate: string;
   cargoDesc: string;
   packages: number;
   declaredWeightKg: number;
-  iecCode?: string;
-  contactEmail?: string;
 }
 
 export async function createInwardJob(input: CreateJobInput): Promise<string> {
   const { data, error } = await supabase.rpc('create_inward_job', {
-    p_customer_name: input.customerName,
-    p_boe_number: input.boeNumber,
-    p_cargo_description: input.cargoDesc,
-    p_package_count: input.packages,
-    p_declared_weight: input.declaredWeightKg,
-    p_iec_code: input.iecCode || null,
-    p_contact_email: input.contactEmail || null,
+    p_customer_name: input.customerName.trim(),
+    p_iec_code: input.iecCode.trim().toUpperCase(),
+    p_contact_person: input.contactPerson.trim(),
+    p_contact_email: input.contactEmail.trim(),
+    p_contact_phone: input.contactPhone.trim(),
+    p_address_line: input.addressLine.trim(),
+    p_city: input.city.trim(),
+    p_boe_number: input.boeNumber.trim(),
+    p_boe_date: input.boeDate,
+    p_cargo_description: input.cargoDesc.trim(),
+    p_package_count: Number(input.packages),
+    p_declared_weight: Number(input.declaredWeightKg),
   });
 
-  if (error) {
-    throw friendlyError(error.message, 'Could not create the job.');
-  }
+  const mappedError = errorFrom(error, 'Could not create the job.');
+  if (mappedError) throw mappedError;
 
   return data as string;
 }
 
-const checkpoints = {
-  chk_job_docs_matched: true,
-  chk_vehicle_photo_recorded: true,
-  chk_otl_escort_verified: true,
-  chk_cargo_desc_matched: true,
-  chk_package_count_checked: true,
-  chk_cargo_condition_checked: true,
-  chk_weight_identified: true,
-  chk_customs_attendance_checked: true,
-  chk_unloading_readiness_confirmed: true,
-};
+export interface WeighmentInput {
+  jobId: string;
+  actualWeightKg: number;
+  actualPackageCount: number;
+  vehicleRegistration: string;
+  driverName: string;
+  driverLicense?: string;
+  arrivalSecurityType: 'otl' | 'customs_escort';
+  otlNumber?: string;
+  otlCondition?: 'intact' | 'broken' | 'tampered' | 'missing' | 'inconsistent';
+  customsEscortName?: string;
+  customsEscortDesignation?: string;
+  cargoConditionNotes?: string;
+  checkpoints: {
+    chk_job_docs_matched: boolean;
+    chk_vehicle_photo_recorded: boolean;
+    chk_otl_escort_verified: boolean;
+    chk_cargo_desc_matched: boolean;
+    chk_package_count_checked: boolean;
+    chk_cargo_condition_checked: boolean;
+    chk_weight_identified: boolean;
+    chk_customs_attendance_checked: boolean;
+    chk_unloading_readiness_confirmed: boolean;
+  };
+}
 
-export async function recordWeighing(
-  job: Pick<DashboardJob, 'id' | 'declaredWeightKg' | 'packages'>,
-  actualWeightKg: number,
-  userId: string
+export async function recordWeighment(input: WeighmentInput): Promise<void> {
+  const { error } = await supabase.rpc('record_weighment', {
+    p_job_id: input.jobId,
+    p_actual_weight: input.actualWeightKg,
+    p_actual_package_count: input.actualPackageCount,
+    p_vehicle_registration: input.vehicleRegistration.trim(),
+    p_driver_name: input.driverName.trim(),
+    p_driver_license: input.driverLicense?.trim() || null,
+    p_arrival_security_type: input.arrivalSecurityType,
+    p_otl_number: input.otlNumber?.trim() || null,
+    p_otl_condition: input.otlCondition || null,
+    p_customs_escort_name: input.customsEscortName?.trim() || null,
+    p_customs_escort_designation: input.customsEscortDesignation?.trim() || null,
+    p_cargo_condition_notes: input.cargoConditionNotes?.trim() || null,
+    p_checkpoints: input.checkpoints,
+  });
+
+  const mappedError = errorFrom(error, 'Could not record the weighment.');
+  if (mappedError) throw mappedError;
+}
+
+export interface RemovalRequestInput {
+  jobId: string;
+  type: RemovalType;
+  requestedPackageCount: number;
+  requestedWeightKg: number;
+  requestedEtd: string;
+
+  exBondBoeNumber?: string;
+  exBondBoeDate?: string;
+  oocNumber?: string;
+  oocDate?: string;
+  dutyPaymentChallanRef?: string;
+
+  shippingBillNumber?: string;
+  shippingBillDate?: string;
+  leoNumber?: string;
+  leoDate?: string;
+  section69OrderRef?: string;
+
+  formANumber?: string;
+  destinationWarehouseCode?: string;
+  destinationWarehouseName?: string;
+  customsTransferPermissionRef?: string;
+
+  outwardOtlNumber?: string;
+}
+
+export async function requestRemoval(input: RemovalRequestInput): Promise<void> {
+  const { error } = await supabase.rpc('request_removal', {
+    p_job_id: input.jobId,
+    p_type: input.type,
+    p_requested_package_count: input.requestedPackageCount,
+    p_requested_weight: input.requestedWeightKg,
+    p_requested_etd: input.requestedEtd,
+    p_ex_bond_boe_number: input.exBondBoeNumber?.trim() || null,
+    p_ex_bond_boe_date: input.exBondBoeDate || null,
+    p_ooc_number: input.oocNumber?.trim() || null,
+    p_ooc_date: input.oocDate || null,
+    p_duty_payment_challan_ref: input.dutyPaymentChallanRef?.trim() || null,
+    p_shipping_bill_number: input.shippingBillNumber?.trim() || null,
+    p_shipping_bill_date: input.shippingBillDate || null,
+    p_leo_number: input.leoNumber?.trim() || null,
+    p_leo_date: input.leoDate || null,
+    p_section_69_order_ref: input.section69OrderRef?.trim() || null,
+    p_form_a_number: input.formANumber?.trim() || null,
+    p_destination_warehouse_code: input.destinationWarehouseCode?.trim() || null,
+    p_destination_warehouse_name: input.destinationWarehouseName?.trim() || null,
+    p_customs_transfer_permission_ref: input.customsTransferPermissionRef?.trim() || null,
+    p_outward_otl_number: input.outwardOtlNumber?.trim() || null,
+  });
+
+  const mappedError = errorFrom(error, 'Could not request the removal.');
+  if (mappedError) throw mappedError;
+}
+
+export interface IssueNdcInput {
+  removalId: string;
+  invoiceNumber: string;
+  invoiceAmount: number;
+}
+
+export async function issueNdc(input: IssueNdcInput): Promise<void> {
+  const { error } = await supabase.rpc('issue_ndc', {
+    p_removal_id: input.removalId,
+    p_invoice_number: input.invoiceNumber.trim(),
+    p_invoice_amount: input.invoiceAmount,
+  });
+
+  const mappedError = errorFrom(error, 'Could not issue the NDC.');
+  if (mappedError) throw mappedError;
+}
+
+export async function issueOutpass(removalId: string): Promise<void> {
+  const { error } = await supabase.rpc('issue_outpass', {
+    p_removal_id: removalId,
+  });
+
+  const mappedError = errorFrom(error, 'Could not issue the outpass.');
+  if (mappedError) throw mappedError;
+}
+
+export interface GateOutInput {
+  removalId: string;
+  vehicleNumber: string;
+  driverName: string;
+  otlSealNumber?: string;
+  customsAuthReference: string;
+  gorodRepresentativeSignature: string;
+  driverSignature: string;
+  customsInspectorSignature?: string;
+}
+
+export async function gateOut(input: GateOutInput): Promise<void> {
+  const { error } = await supabase.rpc('gate_out', {
+    p_removal_id: input.removalId,
+    p_vehicle_number: input.vehicleNumber.trim(),
+    p_driver_name: input.driverName.trim(),
+    p_otl_seal_number: input.otlSealNumber?.trim() || null,
+    p_customs_auth_reference: input.customsAuthReference.trim(),
+    p_gorod_representative_signature: input.gorodRepresentativeSignature.trim(),
+    p_driver_signature: input.driverSignature.trim(),
+    p_customs_inspector_signature:
+      input.customsInspectorSignature?.trim() || null,
+  });
+
+  const mappedError = errorFrom(error, 'Could not record the gate-out.');
+  if (mappedError) throw mappedError;
+}
+
+export interface CustomsNotificationInput {
+  receiptId: string;
+  reference: string;
+  notifiedTo: string;
+}
+
+export async function logCustomsNotification(
+  input: CustomsNotificationInput
 ): Promise<void> {
-  const variance = Number((actualWeightKg - job.declaredWeightKg).toFixed(2));
-  const triggered = Math.abs(variance) > 5;
-
-  const { error } = await supabase.from('inward_receipts').insert({
-    job_id: job.id,
-    vehicle_registration: 'KL-01-DEMO-01',
-    driver_name: 'Operations Weighing Desk',
-    arrival_security_type: 'otl',
-    otl_number: `OTL-DEMO-${Date.now()}`,
-    otl_condition: 'intact',
-    security_passed: true,
-    actual_package_count: job.packages,
-    actual_gross_weight: actualWeightKg,
-    weight_variance: variance,
-    weight_escalation_triggered: triggered,
-    weight_escalation_reason: triggered
-      ? `Actual weight differs from declared reference by ${variance} kg (±5 kg SOP 4.1.8 threshold).`
-      : null,
-    ...checkpoints,
-    verified_by: userId,
+  const { error } = await supabase.rpc('log_customs_notification', {
+    p_receipt_id: input.receiptId,
+    p_reference: input.reference.trim(),
+    p_notified_to: input.notifiedTo.trim(),
   });
 
-  if (error) {
-    throw friendlyError(error.message, 'Could not record the weighing.');
-  }
-
-  const { error: jobError } = await supabase
-    .from('jobs')
-    .update({ status: triggered ? 'weight_escalation_hold' : 'binned_and_barcoded' })
-    .eq('id', job.id);
-
-  if (jobError) {
-    throw friendlyError(jobError.message, 'Weighing saved but the job status did not update.');
-  }
+  const mappedError = errorFrom(error, 'Could not record the Customs notification.');
+  if (mappedError) throw mappedError;
 }
 
-function reference(prefix: string): string {
-  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
-  return `${prefix}-${new Date().getFullYear()}-${suffix}`;
+export interface ResolveEscalationInput {
+  receiptId: string;
+  resolutionReference: string;
+  notes?: string;
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export async function issueNdc(job: DashboardJob, userId: string): Promise<void> {
-  const weight = job.actualWeightKg ?? job.declaredWeightKg;
-
-  const { error } = await supabase.from('removals').insert({
-    removal_number: reference('GL-REM'),
-    job_id: job.id,
-    customer_id: job.customerId,
-    type: 'home_consumption',
-    requested_package_count: job.packages,
-    requested_weight_kg: weight,
-    requested_etd: new Date().toISOString(),
-    ex_bond_boe_number: `EX-${job.boeNumber}`,
-    ex_bond_boe_date: today(),
-    ooc_number: reference('OOC'),
-    ooc_date: today(),
-    duty_payment_challan_ref: reference('CHL'),
-    invoice_number: reference('INV'),
-    invoice_amount: Math.round(weight * 12 + 2500),
-    payment_cleared: true,
-    ndc_number: reference('NDC'),
-    ndc_issued_by: userId,
-    ndc_issued_at: new Date().toISOString(),
-    outpass_number: reference('GL-GP'),
-    outpass_issued_by: userId,
-    outpass_issued_at: new Date().toISOString(),
-    status: 'outpass_issued',
+export async function resolveWeightEscalation(
+  input: ResolveEscalationInput
+): Promise<void> {
+  const { error } = await supabase.rpc('resolve_weight_escalation', {
+    p_receipt_id: input.receiptId,
+    p_resolution_reference: input.resolutionReference.trim(),
+    p_notes: input.notes?.trim() || null,
   });
 
-  if (error) {
-    throw friendlyError(error.message, 'Could not issue the NDC / outpass.');
-  }
+  const mappedError = errorFrom(error, 'Could not resolve the weight hold.');
+  if (mappedError) throw mappedError;
 }
 
-export async function notifyCustoms(jobId: string): Promise<void> {
-  const { error } = await supabase
-    .from('inward_receipts')
-    .update({ weight_escalation_customs_email_sent: new Date().toISOString() })
-    .eq('job_id', jobId)
-    .eq('weight_escalation_triggered', true);
-
-  if (error) {
-    throw friendlyError(error.message, 'Could not record the Customs notification.');
-  }
-}
+export const WEIGHT_THRESHOLD_KG = CBW_DETAILS.weightThresholdKg;

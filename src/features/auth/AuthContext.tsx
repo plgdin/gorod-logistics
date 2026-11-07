@@ -25,60 +25,20 @@ export interface UserProfile {
   department: string;
 }
 
-export type AuthMode = 'supabase' | 'demo' | 'signed_out';
+export type AuthMode = 'supabase' | 'signed_out';
 
-export const PRESET_USERS: Record<UserRole, UserProfile> = {
-  warehouse_keeper: {
-    id: 'usr_keeper_01',
-    email: 'keeper@gorodlogistics.com',
-    full_name: 'Rajesh Nair',
-    role: 'warehouse_keeper',
-    badge_number: 'GL-WK-001',
-    department: 'Warehouse Governance & Compliance',
-  },
-  admin_compliance: {
-    id: 'usr_admin_01',
-    email: 'compliance@gorodlogistics.com',
-    full_name: 'Anjali Menon',
-    role: 'admin_compliance',
-    badge_number: 'GL-ADM-002',
-    department: 'Customs Documentation & ICEGATE Desk',
-  },
-  warehouse_manager: {
-    id: 'usr_ops_01',
-    email: 'operations@gorodlogistics.com',
-    full_name: 'Vikram Pillai',
-    role: 'warehouse_manager',
-    badge_number: 'GL-OPS-003',
-    department: 'Material Handling & Inventory Operations',
-  },
-  security_team: {
-    id: 'usr_sec_01',
-    email: 'security@gorodlogistics.com',
-    full_name: 'Suresh Kumar',
-    role: 'security_team',
-    badge_number: 'GL-SEC-004',
-    department: 'Main Gate & Physical Registers',
-  },
-  accounts_team: {
-    id: 'usr_acc_01',
-    email: 'accounts@gorodlogistics.com',
-    full_name: 'Pooja Varma',
-    role: 'accounts_team',
-    badge_number: 'GL-ACC-005',
-    department: 'Billing & Financial Clearance (NDC)',
-  },
-  customs_bond_officer: {
-    id: 'usr_cbo_01',
-    email: 'bond.officer@customs.gov.in',
-    full_name: 'Superintendent K. Sharma',
-    role: 'customs_bond_officer',
-    badge_number: 'CUS-TRV-BOND-18',
-    department: 'Jurisdictional Customs Authority',
-  },
-};
+const VALID_ROLES: ReadonlySet<UserRole> = new Set([
+  'warehouse_keeper',
+  'admin_compliance',
+  'warehouse_manager',
+  'security_team',
+  'accounts_team',
+  'customs_bond_officer',
+]);
 
-const DEMO_STORAGE_KEY = 'gorod_cbw_demo_user';
+function isUserRole(value: unknown): value is UserRole {
+  return typeof value === 'string' && VALID_ROLES.has(value as UserRole);
+}
 
 interface ProfileRow {
   id: string;
@@ -100,9 +60,7 @@ interface AuthContextType {
   /** Kept for backwards compatibility with existing UI. */
   isSupabaseConnected: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string, role?: UserRole) => Promise<void>;
-  enterDemoMode: (role: UserRole) => void;
-  switchRole: (role: UserRole) => void;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
@@ -110,30 +68,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function readDemoUser(): UserProfile | null {
-  try {
-    const raw = localStorage.getItem(DEMO_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as UserProfile) : null;
-  } catch {
-    return null;
-  }
-}
-
-function findPresetByEmail(email: string): UserProfile | undefined {
-  const normalised = email.trim().toLowerCase();
-  return Object.values(PRESET_USERS).find(
-    (user) => user.email.toLowerCase() === normalised
-  );
-}
-
 function mapProfile(row: ProfileRow): UserProfile {
   return {
     id: row.id,
     email: row.email,
     full_name: row.full_name,
     role: row.role,
-    badge_number: row.badge_number || 'GL-STAFF',
-    department: row.department || 'Customs Documentation & ICEGATE Desk',
+    badge_number: row.badge_number || '—',
+    department: row.department || 'Unassigned',
+  };
+}
+
+function profileFromMetadata(authUser: User): UserProfile | null {
+  const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+  if (!isUserRole(meta.role)) return null;
+
+  return {
+    id: authUser.id,
+    email: authUser.email || '',
+    full_name:
+      (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+      authUser.email ||
+      'Warehouse Staff',
+    role: meta.role,
+    badge_number:
+      (typeof meta.badge_number === 'string' && meta.badge_number.trim()) || '—',
+    department:
+      (typeof meta.department === 'string' && meta.department.trim()) || 'Unassigned',
   };
 }
 
@@ -151,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .eq('id', authUser.id)
       .maybeSingle<ProfileRow>();
 
-    if (data) {
+    if (data && isUserRole(data.role)) {
       setCurrentUser(mapProfile(data));
       return;
     }
@@ -160,24 +121,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Could not load profile:', profileError.message);
     }
 
-    // The auth user exists but the profile row is missing. Fall back to the
-    // matching preset persona, keeping the real auth id so FK writes still work.
-    const preset = findPresetByEmail(authUser.email || '');
-    const meta = authUser.user_metadata as Record<string, unknown> | undefined;
-    setCurrentUser(
-      preset
-        ? { ...preset, id: authUser.id, email: authUser.email || preset.email }
-        : {
-            id: authUser.id,
-            email: authUser.email || '',
-            full_name:
-              (typeof meta?.full_name === 'string' && meta.full_name) ||
-              authUser.email ||
-              'Warehouse Staff',
-            role: 'admin_compliance',
-            badge_number: 'GL-STAFF',
-            department: 'Customs Documentation & ICEGATE Desk',
-          }
+    // The auth user exists but no usable profile row was found. Use the
+    // validated role from user metadata; never invent a statutory role.
+    const fallback = profileFromMetadata(authUser);
+    if (fallback) {
+      setCurrentUser(fallback);
+      return;
+    }
+
+    setCurrentUser(null);
+    setError(
+      'Your staff profile is not configured with a statutory role. Ask the warehouse keeper to provision your profile before signing in.'
     );
   }, []);
 
@@ -186,11 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const boot = async () => {
       if (!isSupabaseConfigured) {
-        const demo = readDemoUser();
         if (!cancelled) {
-          setCurrentUser(demo);
-          setAuthMode(demo ? 'demo' : 'signed_out');
           setLoading(false);
+          setAuthMode('signed_out');
         }
         return;
       }
@@ -202,16 +154,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(data.session);
         setAuthMode('supabase');
         await hydrateProfile(data.session.user);
-        if (!cancelled) setLoading(false);
-        return;
+      } else {
+        setSession(null);
+        setCurrentUser(null);
+        setAuthMode('signed_out');
       }
 
-      const demo = readDemoUser();
-      if (!cancelled) {
-        setCurrentUser(demo);
-        setAuthMode(demo ? 'demo' : 'signed_out');
-        setLoading(false);
-      }
+      if (!cancelled) setLoading(false);
     };
 
     void boot();
@@ -228,7 +177,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (nextSession) {
           setAuthMode('supabase');
           void hydrateProfile(nextSession.user);
+          return;
         }
+
+        setCurrentUser(null);
+        setAuthMode('signed_out');
       }
     );
 
@@ -239,15 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [hydrateProfile]);
 
   const login = useCallback(
-    async (email: string, password: string, role: UserRole = 'warehouse_keeper') => {
+    async (email: string, password: string) => {
       setError(null);
 
       if (!isSupabaseConfigured) {
-        const matched = findPresetByEmail(email) || PRESET_USERS[role];
-        setCurrentUser(matched);
-        setAuthMode('demo');
-        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(matched));
-        return;
+        throw new Error('Authentication is not configured. Contact the system administrator.');
       }
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -258,13 +207,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (signInError) {
         const message =
           signInError.message === 'Invalid login credentials'
-            ? 'Invalid email or password. Demo accounts use password Gorod@2026 (run supabase_live_setup.sql first).'
+            ? 'Invalid email or password.'
             : signInError.message;
         setError(message);
         throw new Error(message);
       }
 
-      localStorage.removeItem(DEMO_STORAGE_KEY);
       setAuthMode('supabase');
       if (data.user) {
         await hydrateProfile(data.user);
@@ -273,35 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [hydrateProfile]
   );
 
-  const enterDemoMode = useCallback((role: UserRole) => {
-    const user = PRESET_USERS[role];
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(user));
-    setCurrentUser(user);
-    setAuthMode('demo');
-    setError(null);
-  }, []);
-
-  const switchRole = useCallback(
-    (role: UserRole) => {
-      setCurrentUser((previous) => {
-        const preset = PRESET_USERS[role];
-
-        // In a real Supabase session the auth id/email are fixed — only the
-        // displayed statutory persona changes. This is a UI demo control; the
-        // database session still belongs to the signed-in account.
-        if (authMode === 'supabase' && previous) {
-          return { ...preset, id: previous.id, email: previous.email };
-        }
-
-        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(preset));
-        return preset;
-      });
-    },
-    [authMode]
-  );
-
   const logout = useCallback(async () => {
-    localStorage.removeItem(DEMO_STORAGE_KEY);
     if (isSupabaseConfigured) {
       try {
         await supabase.auth.signOut();
@@ -338,8 +258,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSupabaseConnected: isSupabaseConfigured,
         isAuthenticated: authMode === 'supabase' && Boolean(session),
         login,
-        enterDemoMode,
-        switchRole,
         logout,
         refreshProfile,
         clearError,

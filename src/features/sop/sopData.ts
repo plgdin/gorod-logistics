@@ -66,7 +66,7 @@ export const SOP_ROLES: SOPRole[] = [
     escalationRole: 'Warehouse Keeper',
   },
   {
-    id: 'operations_team',
+    id: 'warehouse_manager',
     title: 'Warehouse Manager / Operations Team',
     department: 'Warehouse Operations',
     summary: 'Supervises physical intake, tally, precision weighing, 360° photography, bin storage, union labor, and picking.',
@@ -110,7 +110,7 @@ export const SOP_ROLES: SOPRole[] = [
     escalationRole: 'Warehouse Keeper',
   },
   {
-    id: 'customs_officer',
+    id: 'customs_bond_officer',
     title: 'Customs Bond Officer',
     department: 'Indian Customs (External Statutory Authority)',
     isExternal: true,
