@@ -1,225 +1,386 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ShieldCheck,
-  Lock,
-  ArrowRight,
-  UserCheck,
-  FileCheck2,
-  Boxes,
-  Shield,
-  Receipt,
-  Scale,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, PRESET_USERS, UserRole } from '../features/auth/AuthContext';
 import { SEO } from '../components/ui/SEO';
 
-const ROLE_CARDS: {
+const ROLE_OPTIONS: {
   role: UserRole;
   title: string;
   sopRef: string;
   desc: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
 }[] = [
   {
     role: 'warehouse_keeper',
     title: 'Warehouse Keeper',
-    sopRef: 'SOP 3.1 & 4.1.3',
-    desc: 'Overall warehouse custody, Customs liaison, Space Certificate signing, ±5 kg escalation decisions, ICEGATE approvals.',
-    icon: ShieldCheck,
-    color: 'from-red-900/60 to-red-950/80 border-red-800 text-red-300',
+    sopRef: '3.1 / 4.1.3',
+    desc: 'Warehouse custody, Customs liaison, Space Certificate signing, ±5 kg escalation decisions and ICEGATE approvals.',
   },
   {
     role: 'admin_compliance',
-    title: 'Admin Team (Compliance)',
-    sopRef: 'SOP 3.2 & 4.1.1',
-    desc: 'Customer onboarding, 1:1 BOE to Job creation, Customs email dispatch, GRA issuance, draft monthly returns.',
-    icon: FileCheck2,
-    color: 'from-blue-900/60 to-blue-950/80 border-blue-800 text-blue-300',
+    title: 'Admin Team — Compliance',
+    sopRef: '3.2 / 4.1.1',
+    desc: 'Customer onboarding, BOE to Job creation, Customs email dispatch, GRA issuance and draft monthly returns.',
   },
   {
     role: 'warehouse_manager',
-    title: 'Warehouse Manager (Ops)',
-    sopRef: 'SOP 3.3 & 4.1.7',
-    desc: 'Receipt tally, 9-point checklist, weight delta logging, barcode/bin storage, VAS Section 64 execution.',
-    icon: Boxes,
-    color: 'from-amber-900/60 to-amber-950/80 border-amber-800 text-amber-300',
+    title: 'Warehouse Manager — Ops',
+    sopRef: '3.3 / 4.1.7',
+    desc: 'Receipt tally, nine-point checklist, weight delta logging, barcode and bin storage, VAS Section 64 execution.',
   },
   {
     role: 'security_team',
-    title: 'Security Team (Main Gate)',
-    sopRef: 'SOP 3.4 & 4.1.11',
-    desc: 'Physical inward & outward register logging, vehicle inspection, driver ID checks, Outpass gate-out exit control.',
-    icon: Shield,
-    color: 'from-emerald-900/60 to-emerald-950/80 border-emerald-800 text-emerald-300',
+    title: 'Security Team — Main Gate',
+    sopRef: '3.4 / 4.1.11',
+    desc: 'Inward and outward register logging, vehicle inspection, driver ID checks and Outpass gate-out control.',
   },
   {
     role: 'accounts_team',
-    title: 'Accounts Team (Finance)',
-    sopRef: 'SOP 3.5 & 4.2.6',
-    desc: 'Tariff billing, dues clearance, mandatory No-Due Certificate (NDC) generation unlocking Outpass creation.',
-    icon: Receipt,
-    color: 'from-purple-900/60 to-purple-950/80 border-purple-800 text-purple-300',
+    title: 'Accounts Team — Finance',
+    sopRef: '3.5 / 4.2.6',
+    desc: 'Tariff billing, dues clearance and No-Due Certificate generation unlocking Outpass creation.',
   },
   {
     role: 'customs_bond_officer',
     title: 'Customs Bond Officer',
-    sopRef: 'SOP 3.6 & Statutory CBIC',
-    desc: 'External oversight, receipt/removal notifications, OTL inspection supervision, discrepancy orders.',
-    icon: Scale,
-    color: 'from-slate-800/80 to-slate-900/90 border-slate-700 text-slate-200',
+    sopRef: '3.6 / CBIC',
+    desc: 'External oversight, receipt and removal notifications, OTL inspection supervision and discrepancy orders.',
   },
 ];
 
+const BOND_REGISTER = [
+  { label: 'Warehouse', value: 'TRV1U001' },
+  { label: 'Bond', value: '2002591018' },
+  { label: 'Port code', value: 'INTRV1' },
+  { label: 'Jurisdiction', value: 'Thiruvananthapuram' },
+  { label: 'Bond officer', value: 'Supt. K. Sharma' },
+];
+
 export const LoginPage: React.FC = () => {
-  const { login, switchRole, isSupabaseConnected } = useAuth();
+  const {
+    login,
+    enterDemoMode,
+    isSupabaseConfigured,
+    authMode,
+    currentUser,
+    error,
+    clearError,
+  } = useAuth();
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<UserRole>('warehouse_keeper');
   const [emailInput, setEmailInput] = useState<string>(PRESET_USERS.warehouse_keeper.email);
-  const [password, setPassword] = useState<string>('••••••••••••');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (authMode === 'supabase' && currentUser) {
+      navigate('/admin', { replace: true });
+    }
+  }, [authMode, currentUser, navigate]);
+
+  const selectedUser = PRESET_USERS[selectedRole];
+  const selectedOption = ROLE_OPTIONS.find((option) => option.role === selectedRole)!;
 
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
     setEmailInput(PRESET_USERS[role].email);
+    clearError();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(emailInput, selectedRole);
-    navigate('/admin');
+    clearError();
+    setSubmitting(true);
+    try {
+      await login(emailInput, password, selectedRole);
+      navigate('/admin');
+    } catch {
+      // The context exposes a user-friendly message via `error`.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDirectDemoAccess = (role: UserRole) => {
-    switchRole(role);
+    enterDemoMode(role);
     navigate('/admin');
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col bg-[#191919] font-sans text-white selection:bg-[#852929] selection:text-white">
       <SEO
         title="Customs Bonded Portal Login | Gorod Logistics"
         description="Statutory role-based authentication portal for Gorod Logistics Customs Bonded Warehouse (TRV1U001)."
       />
 
-      <div className="max-w-6xl mx-auto space-y-10">
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-red-700/60 text-red-300 text-xs font-semibold">
-            <ShieldCheck className="w-4 h-4 text-red-400" />
-            <span>Customs Bonded Warehouse Portal &bull; TRV1U001 &bull; Bond: 2002591018</span>
+      <header className="border-t-2 border-[#852929] border-b border-b-white/10">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-12">
+          <div className="flex items-center gap-4">
+            <img src="/logo-tint.png" alt="Gorod Logistics" className="h-9 w-auto object-contain" />
+            <span className="h-7 w-px bg-white/15" />
+            <div className="text-[11px] leading-relaxed text-[#c1c1c1]">
+              Customs Bonded Warehouse
+              <br />
+              <span className="text-[#8a8a8a]">TRV1U001 · Bond 2002591018</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Role-Based Statutory Access
-          </h1>
-          <p className="text-slate-400 text-sm max-w-xl mx-auto">
-            Select your assigned statutory department according to SOP Section 3. Every operation in the warehouse is role-segregated and audited.
-          </p>
-          <div className="text-xs text-slate-500">
-            Database Status:{' '}
-            {isSupabaseConnected ? (
-              <span className="text-emerald-400 font-semibold">Supabase Connected (Live)</span>
-            ) : (
-              <span className="text-amber-400 font-semibold">Ready for Supabase Credentials (Running in Local SOP Demo Mode)</span>
-            )}
+
+          <div className="flex items-center gap-5 text-[10px] text-[#8a8a8a]">
+            <span className="flex items-center gap-2">
+              <span
+                className={`h-1.5 w-1.5 ${
+                  isSupabaseConfigured ? 'bg-white' : 'bg-[#852929]'
+                }`}
+              />
+              {isSupabaseConfigured ? 'Directory configured' : 'Local demo only'}
+            </span>
+            <Link
+              to="/"
+              className="hidden text-[#c1c1c1] underline decoration-white/25 underline-offset-4 transition-colors hover:text-white sm:inline"
+            >
+              Public site
+            </Link>
           </div>
         </div>
+      </header>
 
-        {/* Role Selector Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ROLE_CARDS.map((card) => {
-            const Icon = card.icon;
-            const isSelected = selectedRole === card.role;
-            return (
-              <div
-                key={card.role}
-                onClick={() => handleRoleSelect(card.role)}
-                className={`relative rounded-xl border p-5 cursor-pointer transition-all bg-gradient-to-b ${card.color} ${
-                  isSelected ? 'ring-2 ring-red-500 scale-[1.02] shadow-xl' : 'opacity-85 hover:opacity-100 hover:border-slate-500'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/10">
-                    <Icon className="w-5 h-5" />
+      <div className="mx-auto grid w-full max-w-[1440px] flex-1 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="order-2 border-b border-white/10 px-5 py-8 sm:px-8 lg:order-1 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
+          <h2 className="text-[11px] font-semibold text-white">Bond register</h2>
+
+          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 lg:block lg:space-y-4">
+            {BOND_REGISTER.map((item) => (
+              <div key={item.label} className="border-t border-white/10 pt-2">
+                <dt className="text-[10px] text-[#8a8a8a]">{item.label}</dt>
+                <dd className="mt-0.5 text-[13px] tabular-nums text-white">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-8 border-t border-white/10 pt-4">
+            <p className="text-[10px] text-[#8a8a8a]">Statutory basis</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#c1c1c1]">
+              Customs Act, 1962
+              <br />
+              SOP GL-BWH-SOP-01
+            </p>
+          </div>
+
+          <p className="mt-8 hidden text-[10px] leading-relaxed text-[#8a8a8a] lg:block">
+            Directorate of Port, Valiyathura
+            <br />
+            Thiruvananthapuram, Kerala 695008
+          </p>
+        </aside>
+
+        <main className="order-1 px-5 py-8 sm:px-8 lg:order-2 lg:px-12 lg:py-10">
+          <div className="flex items-baseline justify-between gap-4 border-b border-white/10 pb-5">
+            <h1 className="text-[28px] font-bold tracking-tight text-white">Sign in</h1>
+            <span className="text-[10px] tabular-nums text-[#8a8a8a]">SOP GL-BWH-SOP-01</span>
+          </div>
+
+          <p className="mt-4 max-w-[62ch] text-xs leading-relaxed text-[#c1c1c1]">
+            Select your assigned post. Credentials are checked against the bonded-warehouse
+            directory.
+          </p>
+
+          <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-12">
+            <section aria-labelledby="post-label">
+              <div className="flex items-baseline justify-between border-b border-white/15 pb-2">
+                <h2 id="post-label" className="text-[11px] font-semibold text-white">
+                  Assigned post
+                </h2>
+                <span className="text-[10px] text-[#8a8a8a]">SOP Section 3</span>
+              </div>
+
+              <div role="radiogroup" aria-labelledby="post-label">
+                {ROLE_OPTIONS.map((option, index) => {
+                  const active = selectedRole === option.role;
+                  const officer = PRESET_USERS[option.role];
+                  return (
+                    <label
+                      key={option.role}
+                      className={`grid cursor-pointer grid-cols-[28px_minmax(0,1fr)] items-center gap-x-4 border-b border-white/10 px-2 py-2.5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-white sm:grid-cols-[28px_minmax(0,1fr)_92px] ${
+                        active ? 'bg-[#852929]' : 'hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="statutory-post"
+                        value={option.role}
+                        checked={active}
+                        onChange={() => handleRoleSelect(option.role)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`text-[11px] tabular-nums ${
+                          active ? 'text-white/85' : 'text-[#8a8a8a]'
+                        }`}
+                      >
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={`block truncate text-[13px] font-semibold ${
+                            active ? 'text-white' : 'text-[#e8e8e8]'
+                          }`}
+                        >
+                          {option.title}
+                        </span>
+                        <span
+                          className={`block truncate text-[10px] ${
+                            active ? 'text-white/85' : 'text-[#8a8a8a]'
+                          }`}
+                        >
+                          {officer.full_name} · {officer.badge_number}
+                        </span>
+                      </span>
+                      <span
+                        className={`hidden text-right text-[10px] tabular-nums sm:block ${
+                          active ? 'text-white/85' : 'text-[#8a8a8a]'
+                        }`}
+                      >
+                        {option.sopRef}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4">
+                <p className="text-[10px] text-[#8a8a8a]">Selected post</p>
+                <p className="mt-1 text-[12px] text-[#e8e8e8]">
+                  {selectedUser.full_name} · {selectedUser.badge_number}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#8a8a8a]">{selectedUser.department}</p>
+                <p className="mt-2 max-w-[62ch] text-[11px] leading-relaxed text-[#c1c1c1]">
+                  {selectedOption.desc}
+                </p>
+              </div>
+            </section>
+
+            <section
+              aria-labelledby="credentials-label"
+              className="xl:border-l xl:border-white/10 xl:pl-12"
+            >
+              <div className="flex items-baseline justify-between border-b border-white/15 pb-2">
+                <h2 id="credentials-label" className="text-[11px] font-semibold text-white">
+                  Credentials
+                </h2>
+                <span className="text-[10px] text-[#8a8a8a]">Badge holder</span>
+              </div>
+
+              <form onSubmit={handleLogin} className="mt-5 space-y-5">
+                <div>
+                  <label htmlFor="assigned-email" className="block text-[10px] text-[#8a8a8a]">
+                    Assigned email
+                  </label>
+                  <input
+                    id="assigned-email"
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => {
+                      setEmailInput(e.target.value);
+                      if (error) clearError();
+                    }}
+                    autoComplete="username"
+                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#8a8a8a] focus:border-white focus:outline-none focus:ring-0"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <label htmlFor="assigned-password" className="text-[10px] text-[#8a8a8a]">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="text-[10px] text-[#c1c1c1] underline decoration-white/25 underline-offset-4 transition-colors hover:text-white focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                    >
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/50 border border-white/10 text-slate-300">
-                    {card.sopRef}
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-1.5">
-                  <h3 className="font-bold text-base text-white">{card.title}</h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">{card.desc}</p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 font-mono text-[11px] truncate max-w-[180px]">
-                    {PRESET_USERS[card.role].email}
-                  </span>
+                  <input
+                    id="assigned-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) clearError();
+                    }}
+                    autoComplete="current-password"
+                    placeholder="Enter your passcode"
+                    className="mt-1 w-full border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white caret-white placeholder:text-[#8a8a8a] focus:border-white focus:outline-none focus:ring-0"
+                    required
+                  />
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDirectDemoAccess(card.role);
+                    onClick={() => {
+                      setPassword('Gorod@2026');
+                      clearError();
                     }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded transition-colors"
+                    className="mt-2 text-[10px] text-[#8a8a8a] underline decoration-white/20 underline-offset-4 transition-colors hover:text-[#c1c1c1] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                   >
-                    <span>Instant Login</span>
-                    <ArrowRight className="w-3 h-3" />
+                    Use the demo password
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Credentials Form Box */}
-        <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-            <Lock className="w-5 h-5 text-red-400" />
-            <div>
-              <div className="font-bold text-sm text-white">Sign In to SOP Operations Desk</div>
-              <div className="text-xs text-slate-400">Authenticated role: <strong className="text-white">{PRESET_USERS[selectedRole].full_name}</strong></div>
-            </div>
+                {error && (
+                  <div
+                    role="alert"
+                    className="border border-[#852929] bg-[#2a1414] px-3 py-2.5 text-[11px] leading-relaxed text-[#f0c9c9]"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full bg-[#852929] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#9a3232] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting ? 'Checking credentials…' : 'Sign in'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDirectDemoAccess(selectedRole)}
+                    disabled={submitting}
+                    className="w-full border border-white/15 px-5 py-2.5 text-[11px] font-semibold text-[#c1c1c1] transition-colors hover:border-white/30 hover:text-white focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Use a local demo session
+                  </button>
+
+                  <p className="text-[10px] leading-relaxed text-[#8a8a8a]">
+                    Local demo runs in this browser only. No records are written to the database.
+                  </p>
+                </div>
+              </form>
+            </section>
           </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Assigned Email</label>
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 font-mono"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Passcode / Secret</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 font-mono"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 rounded-lg bg-[#852929] hover:bg-[#6b2020] text-white font-bold text-sm transition-all shadow-lg shadow-red-950/40 flex items-center justify-center gap-2"
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>Authenticate as {PRESET_USERS[selectedRole].full_name}</span>
-            </button>
-          </form>
-
-          <div className="text-[11px] text-slate-500 text-center">
-            Statutory CBIC Notice: Unauthorized entry into Customs Bonded Warehouse records is punishable under Section 132/135 of the Customs Act 1962.
-          </div>
-        </div>
+        </main>
       </div>
+
+      <footer className="border-t border-white/10">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-2 px-5 py-4 text-[10px] leading-relaxed text-[#8a8a8a] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
+          <p>
+            Authorised personnel only. Unauthorised access to Customs bonded records is punishable
+            under Sections 132 and 135, Customs Act 1962.
+          </p>
+          <div className="flex items-center gap-4">
+            <span>Directorate of Port, Valiyathura</span>
+            <Link
+              to="/"
+              className="text-[#c1c1c1] underline decoration-white/25 underline-offset-4 transition-colors hover:text-white sm:hidden"
+            >
+              Public site
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

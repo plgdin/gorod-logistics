@@ -1,5 +1,3 @@
-export type CargoType = 'air' | 'sea';
-
 export type ContainerSize = '20ft' | '40ft';
 
 export type HandlingType = 'manual' | 'mechanical';

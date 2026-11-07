@@ -25,3 +25,101 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* SOP manual printing: turn the dark screen view into a clean paper document. */
+.sop-print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .sop-document {
+    background: #ffffff !important;
+    color: #111111 !important;
+    min-height: 0 !important;
+  }
+
+  .sop-print-hide,
+  .sop-document header,
+  .sop-document aside {
+    display: none !important;
+  }
+
+  .sop-print-only {
+    display: block !important;
+  }
+
+  .sop-print-body {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .sop-document main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .sop-document h1,
+  .sop-document h2,
+  .sop-document h3,
+  .sop-document h4,
+  .sop-document h5 {
+    color: #111111 !important;
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  .sop-document p,
+  .sop-document li,
+  .sop-document td,
+  .sop-document th,
+  .sop-document em,
+  .sop-document strong,
+  .sop-document span,
+  .sop-document a {
+    color: #111111 !important;
+  }
+
+  .sop-document a {
+    text-decoration: none !important;
+  }
+
+  .sop-document section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .sop-document table {
+    border-color: #999999 !important;
+    width: 100% !important;
+  }
+
+  .sop-document thead tr {
+    background: #eeeeee !important;
+  }
+
+  .sop-document th,
+  .sop-document td {
+    border-color: #bbbbbb !important;
+  }
+
+  .sop-document .border-slate-800,
+  .sop-document .border-slate-700 {
+    border-color: #bbbbbb !important;
+  }
+
+  .sop-document .bg-slate-800,
+  .sop-document .bg-slate-900,
+  .sop-document .bg-slate-950 {
+    background: transparent !important;
+  }
+}

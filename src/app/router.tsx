@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
+import { RequireAuth } from '../components/auth/RequireAuth';
 import { HomePage } from '../pages/HomePage';
 import { AirCargoPage } from '../pages/AirCargoPage';
 import { SeaCargoPage } from '../pages/SeaCargoPage';
@@ -13,6 +14,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 
 import { LoginPage } from '../pages/LoginPage';
 import { AdminDashboard } from '../pages/AdminDashboard';
+import { SOPPage } from '../pages/SOPPage';
 
 export const router = createBrowserRouter([
   {
@@ -21,7 +23,19 @@ export const router = createBrowserRouter([
   },
   {
     path: '/admin',
-    element: <AdminDashboard />,
+    element: (
+      <RequireAuth>
+        <AdminDashboard />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/sop',
+    element: (
+      <RequireAuth>
+        <SOPPage />
+      </RequireAuth>
+    ),
   },
   {
     path: '/',
@@ -70,4 +84,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

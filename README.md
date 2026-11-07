@@ -1,6 +1,6 @@
-# Ankit Logistics — Public Website & Tariff System (Phase 1)
+# Gorod Logistics — Public Website & Tariff System (Phase 1)
 
-Professional, production-quality public website and tariff calculation engine for **Ankit Logistics**, a customs-bonded warehouse and cargo logistics provider operating in Thiruvananthapuram, Kerala, India.
+Professional, production-quality public website and tariff calculation engine for **Gorod Logistics**, a customs-bonded warehouse and cargo logistics provider operating in Thiruvananthapuram, Kerala, India.
 
 ---
 
@@ -24,6 +24,37 @@ npm run dev
 # Compile production build
 npm run build
 ```
+
+---
+
+## 1b. Backend Go-Live (Supabase)
+
+The operational dashboard (`/admin`) and SOP manual (`/sop`) are backed by Supabase.
+
+1. Put the project URL and **anon** key in `.env.local`:
+   ```bash
+   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<anon-key>
+   ```
+2. Open the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run
+   `supabase_live_setup.sql` once. This is idempotent and it:
+   - adds the RLS policies that `supabase_sop_schema.sql` was missing,
+   - auto-creates a `profiles` row for every new auth user,
+   - creates the `dashboard_jobs` view and `create_inward_job()` RPC,
+   - creates six confirmed demo accounts,
+   - seeds demo customers, jobs, receipts and one cleared removal.
+3. Sign in at `/login` with any demo email and password `Gorod@2026`:
+   `keeper@`, `compliance@`, `operations@`, `security@`, `accounts@gorodlogistics.com`,
+   or `bond.officer@customs.gov.in`.
+4. The **Database Sync** card on the dashboard now performs a real health check.
+   Writes go to PostgreSQL; refresh keeps your data.
+
+If the SQL has not been run yet, the dashboard still works in **Local Demo mode**
+(the `Local Demo` button on the login page) but changes are not persisted.
+
+> Security note: the anon key is safe to ship in the browser. Never put the
+> `service_role` key in `VITE_*` variables. Current RLS grants full access to any
+> authenticated staff account; per-role policies are a follow-up hardening step.
 
 ---
 
