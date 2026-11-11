@@ -8,12 +8,19 @@ import {
   issueNdc,
   issueOutpass,
   logCustomsNotification,
-  recordWeighment,
+  recordInwardReweighment,
+  recordInwardScaleWeighment,
+  recordOutwardWeighment,
   requestRemoval,
   resolveWeightEscalation,
   type DashboardJob,
   type RemovalType,
 } from '../../lib/jobsApi';
+import { WeighingStationPanel } from '../weighing/WeighingStationPanel';
+import type {
+  CapturedScaleReading,
+  MeasurementPurpose,
+} from '../weighing/types';
 import {
   formatCurrency,
   formatDateTime,
@@ -380,13 +387,17 @@ const EMPTY_CHECKPOINTS: Checkpoints = {
   chk_unloading_readiness_confirmed: false,
 };
 
-export const WeighmentDialog: React.FC<JobDialogProps> = ({
+export const WeighmentDialog: React.FC<JobDialogProps & { thresholdKg?: number }> = ({
   open,
   job,
+  thresholdKg = CBW_DETAILS.weightThresholdKg,
   onClose,
   onSaved,
 }) => {
   const [actualWeight, setActualWeight] = useState('');
+  const [capturedScaleReading, setCapturedScaleReading] =
+    useState<CapturedScaleReading | null>(null);
+  const [manualOverride, setManualOverride] = useState(false);
   const [actualPackages, setActualPackages] = useState(String(job.packages));
   const [vehicleRegistration, setVehicleRegistration] = useState('');
   const [driverName, setDriverName] = useState('');
@@ -406,14 +417,28 @@ export const WeighmentDialog: React.FC<JobDialogProps> = ({
   const toggleCheckpoint = (key: keyof Checkpoints) =>
     setCheckpoints((previous) => ({ ...previous, [key]: !previous[key] }));
 
+  const allCheckpointsComplete = Object.values(checkpoints).every(Boolean);
+
+  const handleScaleCapture = (reading: CapturedScaleReading) => {
+    setCapturedScaleReading(reading);
+    setActualWeight(reading.weightKg.toFixed(3));
+    setManualOverride(false);
+    setCheckpoints((prev) => ({ ...prev, chk_weight_identified: true }));
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
+    if (capturedScaleReading?.isSimulated) {
+      setError('Simulated scale readings cannot be saved to production records.');
+      return;
+    }
+
     const weight = Number(actualWeight);
     const packages = Number(actualPackages);
     if (!Number.isFinite(weight) || weight <= 0) {
-      setError('Enter the actual weighbridge weight in kilograms.');
+      setError('Capture a stable scale reading or enter verified weight in kilograms.');
       return;
     }
     if (!Number.isFinite(packages) || packages <= 0) {
@@ -437,14 +462,14 @@ export const WeighmentDialog: React.FC<JobDialogProps> = ({
       setError('Customs escort name and designation are required.');
       return;
     }
-    if (!Object.values(checkpoints).every(Boolean)) {
+    if (!allCheckpointsComplete) {
       setError('Complete all nine pre-unloading checks before recording the weighment.');
       return;
     }
 
     setBusy(true);
     try {
-      await recordWeighment({
+      await recordInwardScaleWeighment({
         jobId: job.id,
         actualWeightKg: weight,
         actualPackageCount: packages,
@@ -459,8 +484,9 @@ export const WeighmentDialog: React.FC<JobDialogProps> = ({
           securityType === 'customs_escort' ? escortDesignation : undefined,
         cargoConditionNotes: conditionNotes,
         checkpoints,
+        scaleReading: manualOverride ? null : capturedScaleReading,
       });
-      onSaved('Weighment recorded on the inward receipt.');
+      onSaved('Weighment and telemetry recorded on the inward receipt.');
     } catch (submitError) {
       setError(errorText(submitError, 'Could not record the weighment.'));
     } finally {
@@ -472,13 +498,47 @@ export const WeighmentDialog: React.FC<JobDialogProps> = ({
     <Modal
       open={open}
       onClose={onClose}
-      title="Record weighbridge weighment"
+      title="Record inward weighbridge weighment"
       description={`SOP 4.1.7–4.1.8 — declared weight ${formatKg(
         job.declaredWeightKg
-      )}; statutory tolerance ±${CBW_DETAILS.weightThresholdKg} kg.`}
+      )}; internal threshold ±${thresholdKg} kg.`}
       width="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <WeighingStationPanel
+          direction="inward"
+          jobNumber={job.jobNumber}
+          boeNumber={job.boeNumber}
+          referenceWeightKg={job.declaredWeightKg}
+          thresholdKg={thresholdKg}
+          isAuthorized
+          isTransactionValid={Boolean(job.id)}
+          capturedReading={capturedScaleReading}
+          onCapture={handleScaleCapture}
+          onClearCapture={() => {
+            setCapturedScaleReading(null);
+            if (!manualOverride) setActualWeight('');
+          }}
+        />
+
+        <div className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2">
+          <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-slate-300"
+              checked={manualOverride}
+              onChange={(e) => {
+                setManualOverride(e.target.checked);
+                if (e.target.checked) setCapturedScaleReading(null);
+              }}
+            />
+            <span>Manual scale entry fallback (recorded as MANUAL in audit ledger)</span>
+          </label>
+          <span className="font-mono text-[10px] text-slate-500">
+            Source: {capturedScaleReading ? capturedScaleReading.stabilitySource : manualOverride ? 'MANUAL' : 'PENDING'}
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={labelClass} htmlFor="weigh-actual">
@@ -487,12 +547,14 @@ export const WeighmentDialog: React.FC<JobDialogProps> = ({
             <input
               id="weigh-actual"
               type="number"
-              min={0.01}
-              step="0.01"
+              min={0.001}
+              step="0.001"
               className={`${inputClass} font-mono`}
               required
+              readOnly={!manualOverride}
               value={actualWeight}
               onChange={(e) => setActualWeight(e.target.value)}
+              placeholder={manualOverride ? 'Enter manual weight in kg' : 'Capture from live scale above'}
             />
           </div>
           <div>
@@ -1693,6 +1755,359 @@ export const ResolveHoldDialog: React.FC<JobDialogProps> = ({
           busy={busy}
           busyLabel="Resolving…"
           submitLabel="Resolve hold"
+          onCancel={onClose}
+        />
+      </form>
+    </Modal>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Inward Reweigh / Verification / Correction (Phase 7)
+// ---------------------------------------------------------------------------
+
+export const ReweighDialog: React.FC<JobDialogProps & { thresholdKg?: number }> = ({
+  open,
+  job,
+  thresholdKg = CBW_DETAILS.weightThresholdKg,
+  onClose,
+  onSaved,
+}) => {
+  const [purpose, setPurpose] = useState<MeasurementPurpose>('reweigh');
+  const [actualWeight, setActualWeight] = useState('');
+  const [capturedReading, setCapturedReading] = useState<CapturedScaleReading | null>(null);
+  const [manualOverride, setManualOverride] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCapture = (reading: CapturedScaleReading) => {
+    setCapturedReading(reading);
+    setActualWeight(reading.weightKg.toFixed(3));
+    setManualOverride(false);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!job.receiptId) {
+      setError('No inward receipt is linked to this job.');
+      return;
+    }
+    if (capturedReading?.isSimulated) {
+      setError('Simulated scale readings cannot be saved to production records.');
+      return;
+    }
+
+    const weight = Number(actualWeight);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      setError('Capture a stable scale reading or enter verified weight in kilograms.');
+      return;
+    }
+    if (purpose === 'correction' && !reason.trim()) {
+      setError('A correction reason is mandatory.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await recordInwardReweighment({
+        jobId: job.id,
+        receiptId: job.receiptId,
+        actualWeightKg: weight,
+        purpose,
+        reason,
+        scaleReading: manualOverride ? null : capturedReading,
+      });
+      onSaved('Additional measurement recorded in immutable audit history.');
+    } catch (submitError) {
+      setError(errorText(submitError, 'Could not record the reweighment.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Record reweigh / verification measurement"
+      description={`SOP 4.1.8 — preserves historical measurements for ${job.jobNumber} (${job.boeNumber}).`}
+      width="2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <WeighingStationPanel
+          direction="inward"
+          jobNumber={job.jobNumber}
+          boeNumber={job.boeNumber}
+          referenceWeightKg={job.declaredWeightKg}
+          thresholdKg={thresholdKg}
+          isAuthorized
+          isTransactionValid={Boolean(job.receiptId)}
+          capturedReading={capturedReading}
+          onCapture={handleCapture}
+          onClearCapture={() => {
+            setCapturedReading(null);
+            if (!manualOverride) setActualWeight('');
+          }}
+        />
+
+        <div className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2">
+          <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-slate-300"
+              checked={manualOverride}
+              onChange={(e) => {
+                setManualOverride(e.target.checked);
+                if (e.target.checked) setCapturedReading(null);
+              }}
+            />
+            <span>Manual scale entry fallback</span>
+          </label>
+          <span className="font-mono text-[10px] text-slate-500">
+            Prior recorded weight: {formatKg(job.actualWeightKg)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelClass} htmlFor="reweigh-purpose">
+              Measurement purpose <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="reweigh-purpose"
+              className={inputClass}
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value as MeasurementPurpose)}
+            >
+              <option value="reweigh">Reweighing</option>
+              <option value="verification">Customs / Supervisor Verification</option>
+              <option value="correction">Authorized Correction</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="reweigh-weight">
+              Measured weight (kg) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="reweigh-weight"
+              type="number"
+              min={0.001}
+              step="0.001"
+              className={`${inputClass} font-mono`}
+              required
+              readOnly={!manualOverride}
+              value={actualWeight}
+              onChange={(e) => setActualWeight(e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass} htmlFor="reweigh-reason">
+              Notes / Reason {purpose === 'correction' && <span className="text-red-500">*</span>}
+            </label>
+            <textarea
+              id="reweigh-reason"
+              className={inputClass}
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Customs Bond Officer requested 2nd pallet verification"
+            />
+          </div>
+        </div>
+
+        <DialogError message={error} />
+        <FormActions
+          busy={busy}
+          busyLabel="Saving measurement…"
+          submitLabel="Save measurement"
+          onCancel={onClose}
+        />
+      </form>
+    </Modal>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Outward Delivery-Zone Verification & Weighing (SOP 4.2.5)
+// ---------------------------------------------------------------------------
+
+export const OutwardWeighmentDialog: React.FC<JobDialogProps & { thresholdKg?: number }> = ({
+  open,
+  job,
+  thresholdKg = CBW_DETAILS.weightThresholdKg,
+  onClose,
+  onSaved,
+}) => {
+  const [pickedPackages, setPickedPackages] = useState(
+    String(job.pickedPackageCount ?? job.requestedPackageCount ?? job.packages)
+  );
+  const [pickedWeight, setPickedWeight] = useState(
+    job.pickedActualWeightKg != null ? String(job.pickedActualWeightKg) : ''
+  );
+  const [capturedReading, setCapturedReading] = useState<CapturedScaleReading | null>(null);
+  const [manualOverride, setManualOverride] = useState(false);
+  const [conditionNotes, setConditionNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const referenceWeight = job.requestedWeightKg ?? job.declaredWeightKg;
+
+  const handleCapture = (reading: CapturedScaleReading) => {
+    setCapturedReading(reading);
+    setPickedWeight(reading.weightKg.toFixed(3));
+    setManualOverride(false);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!job.removalId) {
+      setError('No removal transaction is linked to this job.');
+      return;
+    }
+    if (capturedReading?.isSimulated) {
+      setError('Simulated scale readings cannot be saved to production records.');
+      return;
+    }
+
+    const pkgCount = Number(pickedPackages);
+    const weight = Number(pickedWeight);
+    if (!Number.isFinite(pkgCount) || pkgCount <= 0) {
+      setError('Picked package count must be greater than zero.');
+      return;
+    }
+    if (!Number.isFinite(weight) || weight <= 0) {
+      setError('Capture a stable scale weight or enter verified delivery weight.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await recordOutwardWeighment({
+        removalId: job.removalId,
+        pickedPackageCount: pkgCount,
+        pickedActualWeightKg: weight,
+        conditionNotes,
+        purpose: job.deliveryZoneVerifiedAt ? 'reweigh' : 'initial',
+        scaleReading: manualOverride ? null : capturedReading,
+      });
+      onSaved(
+        'Delivery-zone verification & scale weight recorded. Continue NDC, Outpass, and Gate-Out checks.'
+      );
+    } catch (submitError) {
+      setError(errorText(submitError, 'Could not record outward delivery weighing.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Delivery-zone verification & weighing"
+      description={`SOP 4.2.5 — ${job.removalNumber || 'Removal'} linked to ${job.jobNumber} (${job.boeNumber}).`}
+      width="2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <div className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-950">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />
+          <span>
+            Outward weighing does <strong>not</strong> constitute Customs clearance, Accounts NDC,
+            or Gate-Out authorization. All statutory release locks remain enforced.
+          </span>
+        </div>
+
+        <WeighingStationPanel
+          direction="outward"
+          jobNumber={job.jobNumber}
+          boeNumber={job.boeNumber}
+          referenceWeightKg={referenceWeight}
+          thresholdKg={thresholdKg}
+          isAuthorized
+          isTransactionValid={Boolean(job.removalId)}
+          capturedReading={capturedReading}
+          onCapture={handleCapture}
+          onClearCapture={() => {
+            setCapturedReading(null);
+            if (!manualOverride) setPickedWeight('');
+          }}
+        />
+
+        <div className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2">
+          <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-slate-300"
+              checked={manualOverride}
+              onChange={(e) => {
+                setManualOverride(e.target.checked);
+                if (e.target.checked) setCapturedReading(null);
+              }}
+            />
+            <span>Manual scale entry fallback</span>
+          </label>
+          <span className="font-mono text-[10px] text-slate-500">
+            Requested: {job.requestedPackageCount ?? '—'} pkgs · {formatKg(referenceWeight)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelClass} htmlFor="outward-packages">
+              Verified package count <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="outward-packages"
+              type="number"
+              min={1}
+              className={inputClass}
+              required
+              value={pickedPackages}
+              onChange={(e) => setPickedPackages(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="outward-weight">
+              Actual delivery weight (kg) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="outward-weight"
+              type="number"
+              min={0.001}
+              step="0.001"
+              className={`${inputClass} font-mono`}
+              required
+              readOnly={!manualOverride}
+              value={pickedWeight}
+              onChange={(e) => setPickedWeight(e.target.value)}
+              placeholder={manualOverride ? 'Enter weight in kg' : 'Capture from live scale above'}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass} htmlFor="outward-notes">
+              Delivery condition &amp; photo/seal notes (optional)
+            </label>
+            <textarea
+              id="outward-notes"
+              className={inputClass}
+              rows={2}
+              value={conditionNotes}
+              onChange={(e) => setConditionNotes(e.target.value)}
+              placeholder="Packaging intact, barcode verified, delivery zone photos uploaded"
+            />
+          </div>
+        </div>
+
+        <DialogError message={error} />
+        <FormActions
+          busy={busy}
+          busyLabel="Recording…"
+          submitLabel="Save delivery verification"
           onCancel={onClose}
         />
       </form>

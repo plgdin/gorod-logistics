@@ -18,6 +18,7 @@ import { CBW_DETAILS, SOP_ROLES, SOPRole } from '../features/sop/sopData';
 import { SEO } from '../components/ui/SEO';
 import {
   fetchDashboardJobs,
+  fetchWeighingThresholdKg,
   type DashboardJob,
   type JobStatus,
 } from '../lib/jobsApi';
@@ -35,10 +36,14 @@ import {
   NdcDialog,
   NewJobDialog,
   OutpassDialog,
+  OutwardWeighmentDialog,
   RemovalDialog,
   ResolveHoldDialog,
+  ReweighDialog,
   WeighmentDialog,
 } from '../features/cbw/CBWDialogs';
+import { JobWeighingHistory } from '../features/weighing/JobWeighingHistory';
+import { WeighingReportsTab } from '../features/weighing/WeighingReportsTab';
 
 type ActiveTab =
   | 'all_jobs'
@@ -46,11 +51,14 @@ type ActiveTab =
   | 'holds'
   | 'removals'
   | 'outpass'
+  | 'weighing_reports'
   | 'roles';
 
 type DialogState =
   | { kind: 'new_job' }
   | { kind: 'weighment'; job: DashboardJob }
+  | { kind: 'reweigh'; job: DashboardJob }
+  | { kind: 'outward_weigh'; job: DashboardJob }
   | { kind: 'removal'; job: DashboardJob }
   | { kind: 'ndc'; job: DashboardJob }
   | { kind: 'outpass'; job: DashboardJob }
@@ -132,6 +140,8 @@ export const AdminDashboard: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<DashboardJob | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [thresholdKg, setThresholdKg] = useState<number>(CBW_DETAILS.weightThresholdKg);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const loadLiveJobs = useCallback(async () => {
     if (!isLive) {
@@ -143,12 +153,15 @@ export const AdminDashboard: React.FC = () => {
     setLoadingJobs(true);
     setSyncError(null);
     try {
-      const [rows, health] = await Promise.all([
+      const [rows, health, configuredThreshold] = await Promise.all([
         fetchDashboardJobs(),
         checkSupabaseHealth(),
+        fetchWeighingThresholdKg(),
       ]);
       setJobs(rows);
       setDbHealth(health);
+      setThresholdKg(configuredThreshold);
+      setHistoryRefreshKey((k) => k + 1);
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Could not sync with Supabase.');
     } finally {
@@ -282,6 +295,7 @@ export const AdminDashboard: React.FC = () => {
     },
     { id: 'removals', label: 'Removal / NDC', count: removalPendingCount },
     { id: 'outpass', label: 'Outpass / Gate Out', count: outpassCount },
+    { id: 'weighing_reports', label: 'Weighing Audit' },
     { id: 'roles', label: 'Role Authority Matrix (SOP Sec 3)' },
   ];
 
@@ -297,6 +311,31 @@ export const AdminDashboard: React.FC = () => {
         label: 'Record Weighment',
         tone: 'amber',
         onClick: () => setDialog({ kind: 'weighment', job }),
+      });
+    }
+    if (
+      canWeigh &&
+      job.actualWeightKg != null &&
+      job.receiptId &&
+      job.removalStatus !== 'gate_exited' &&
+      job.removalStatus !== 'removal_closed'
+    ) {
+      actions.push({
+        label: 'Reweigh',
+        tone: 'slate',
+        onClick: () => setDialog({ kind: 'reweigh', job }),
+      });
+    }
+    if (
+      canWeigh &&
+      job.removalId &&
+      job.removalStatus !== 'gate_exited' &&
+      job.removalStatus !== 'removal_closed'
+    ) {
+      actions.push({
+        label: job.deliveryZoneVerifiedAt ? 'Reweigh Delivery' : 'Weigh Delivery',
+        tone: 'amber',
+        onClick: () => setDialog({ kind: 'outward_weigh', job }),
       });
     }
     if (canNotify && job.escalationTriggered && !job.escalationResolved && !job.escalationNotifiedAt) {
@@ -646,7 +685,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {activeTab !== 'roles' && (
+          {activeTab !== 'roles' && activeTab !== 'weighing_reports' && (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
@@ -693,7 +732,7 @@ export const AdminDashboard: React.FC = () => {
                   {filteredJobs.map((job) => {
                     const deltaBreach =
                       job.weightVarianceKg !== undefined &&
-                      Math.abs(job.weightVarianceKg) > CBW_DETAILS.weightThresholdKg;
+                      Math.abs(job.weightVarianceKg) > thresholdKg;
                     const actions = rowActions(job);
 
                     return (
@@ -809,6 +848,18 @@ export const AdminDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {activeTab === 'weighing_reports' && (
+            <WeighingReportsTab
+              jobs={jobs}
+              thresholdKg={thresholdKg}
+              canConfigureThreshold={currentRole === 'warehouse_keeper'}
+              onThresholdUpdated={(next) => {
+                setThresholdKg(next);
+                setNotice(`Weighing discrepancy threshold updated to ±${next} kg.`);
+              }}
+            />
           )}
 
           {activeTab === 'roles' && (
@@ -963,7 +1014,7 @@ export const AdminDashboard: React.FC = () => {
                     Weighbridge Protocol (SOP 4.1.8)
                   </h3>
                   <span className="font-mono text-[10px] text-slate-500">
-                    Statutory Threshold: ±{CBW_DETAILS.weightThresholdKg} kg
+                    Internal Threshold: ±{thresholdKg} kg
                   </span>
                 </div>
                 <div className="space-y-2 rounded-md border border-slate-200 bg-white p-3.5">
@@ -986,7 +1037,7 @@ export const AdminDashboard: React.FC = () => {
                     <span
                       className={`rounded border px-2 py-0.5 font-mono text-xs ${
                         selectedJob.weightVarianceKg !== undefined &&
-                        Math.abs(selectedJob.weightVarianceKg) > CBW_DETAILS.weightThresholdKg
+                        Math.abs(selectedJob.weightVarianceKg) > thresholdKg
                           ? 'border-red-200 bg-red-50 text-red-700'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       }`}
@@ -1124,9 +1175,42 @@ export const AdminDashboard: React.FC = () => {
                         {formatCurrency(selectedJob.invoiceAmount)}
                       </span>
                     </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500">Delivery-zone verified weight</span>
+                      <span className="font-mono text-slate-900">
+                        {selectedJob.pickedActualWeightKg != null
+                          ? `${formatKg(selectedJob.pickedActualWeightKg)} (${selectedJob.pickedPackageCount ?? '—'} pkgs)`
+                          : 'Pending delivery weighing'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500">Delivery-zone variance</span>
+                      <span className="font-mono text-slate-900">
+                        {selectedJob.deliveryZoneWeightVarianceKg != null
+                          ? formatSignedKg(selectedJob.deliveryZoneWeightVarianceKg)
+                          : '—'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
+
+              <JobWeighingHistory
+                jobId={selectedJob.id}
+                refreshKey={historyRefreshKey}
+                canReviewException={
+                  currentRole === 'warehouse_keeper' ||
+                  currentRole === 'admin_compliance' ||
+                  currentRole === 'warehouse_manager'
+                }
+                canResolveException={
+                  currentRole === 'warehouse_keeper' ||
+                  currentRole === 'customs_bond_officer'
+                }
+                onUpdated={(message) => {
+                  void handleSaved(message);
+                }}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 p-4">
@@ -1163,6 +1247,25 @@ export const AdminDashboard: React.FC = () => {
         <WeighmentDialog
           open
           job={dialog.job}
+          thresholdKg={thresholdKg}
+          onClose={() => setDialog(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {dialog?.kind === 'reweigh' && (
+        <ReweighDialog
+          open
+          job={dialog.job}
+          thresholdKg={thresholdKg}
+          onClose={() => setDialog(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {dialog?.kind === 'outward_weigh' && (
+        <OutwardWeighmentDialog
+          open
+          job={dialog.job}
+          thresholdKg={thresholdKg}
           onClose={() => setDialog(null)}
           onSaved={handleSaved}
         />

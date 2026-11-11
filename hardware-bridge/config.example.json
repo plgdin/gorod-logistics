@@ -1,0 +1,25 @@
+{
+  "host": "127.0.0.1",
+  "port": 8765,
+  "auth_token": "gorod-local-scale-token",
+  "allowed_origins": [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "https://gorodlogistics.com",
+    "https://www.gorodlogistics.com"
+  ],
+  "default_baud_rate": 9600,
+  "default_data_bits": 8,
+  "default_parity": "N",
+  "default_stop_bits": 1,
+  "reconnect_interval_sec": 3.0,
+  "max_reconnect_attempts": 10,
+  "stability_window_size": 5,
+  "stability_tolerance_kg": 0.05,
+  "stability_min_duration_ms": 1200,
+  "log_level": "INFO",
+  "log_file": "logs/bridge.log"
+}
+

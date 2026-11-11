@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
 import { CBW_DETAILS } from '../features/sop/sopData';
+import type {
+  CapturedScaleReading,
+  MeasurementPurpose,
+  WeighingExceptionRecord,
+  WeighingExceptionStatus,
+  WeighingMeasurementRecord,
+} from '../features/weighing/types';
 
 export type JobStatus =
   | 'Enquiry'
@@ -55,6 +62,12 @@ export interface DashboardJob {
   requestedWeightKg?: number;
   requestedEtd?: string;
   outpassNumber?: string;
+  pickedPackageCount?: number;
+  pickedActualWeightKg?: number;
+  deliveryZoneVerifiedAt?: string;
+  deliveryZoneWeightVarianceKg?: number;
+  measurementCount?: number;
+  activeExceptionStatus?: WeighingExceptionStatus;
 }
 
 interface DashboardJobRow {
@@ -96,6 +109,13 @@ interface DashboardJobRow {
   requested_package_count: number | null;
   requested_weight_kg: number | null;
   requested_etd: string | null;
+
+  picked_package_count?: number | null;
+  picked_actual_weight_kg?: number | null;
+  delivery_zone_verified_at?: string | null;
+  delivery_zone_weight_variance_kg?: number | null;
+  measurement_count?: number | null;
+  active_exception_status?: WeighingExceptionStatus | null;
 
   assigned_bin: string | null;
   created_at: string;
@@ -214,6 +234,18 @@ function mapRow(row: DashboardJobRow): DashboardJob {
       row.requested_weight_kg === null ? undefined : Number(row.requested_weight_kg),
     requestedEtd: row.requested_etd || undefined,
     outpassNumber: row.outpass_number || undefined,
+    pickedPackageCount:
+      row.picked_package_count == null ? undefined : Number(row.picked_package_count),
+    pickedActualWeightKg:
+      row.picked_actual_weight_kg == null ? undefined : Number(row.picked_actual_weight_kg),
+    deliveryZoneVerifiedAt: row.delivery_zone_verified_at || undefined,
+    deliveryZoneWeightVarianceKg:
+      row.delivery_zone_weight_variance_kg == null
+        ? undefined
+        : Number(row.delivery_zone_weight_variance_kg),
+    measurementCount:
+      row.measurement_count == null ? undefined : Number(row.measurement_count),
+    activeExceptionStatus: row.active_exception_status || undefined,
   };
 }
 
@@ -504,6 +536,334 @@ export async function resolveWeightEscalation(
   });
 
   const mappedError = errorFrom(error, 'Could not resolve the weight hold.');
+  if (mappedError) throw mappedError;
+}
+
+export interface ScaleWeighmentInput extends WeighmentInput {
+  scaleReading?: CapturedScaleReading | null;
+}
+
+export async function recordInwardScaleWeighment(
+  input: ScaleWeighmentInput
+): Promise<void> {
+  if (input.scaleReading?.isSimulated) {
+    throw new Error(
+      'Simulated scale readings cannot be saved to production warehouse records.'
+    );
+  }
+
+  const telemetry = input.scaleReading;
+  const { error } = await supabase.rpc('record_inward_scale_weighment', {
+    p_job_id: input.jobId,
+    p_actual_weight_kg: input.actualWeightKg,
+    p_actual_package_count: input.actualPackageCount,
+    p_vehicle_registration: input.vehicleRegistration.trim(),
+    p_driver_name: input.driverName.trim(),
+    p_driver_license: input.driverLicense?.trim() || null,
+    p_arrival_security_type: input.arrivalSecurityType,
+    p_otl_number: input.otlNumber?.trim() || null,
+    p_otl_condition: input.otlCondition || null,
+    p_customs_escort_name: input.customsEscortName?.trim() || null,
+    p_customs_escort_designation: input.customsEscortDesignation?.trim() || null,
+    p_cargo_condition_notes: input.cargoConditionNotes?.trim() || null,
+    p_checkpoints: input.checkpoints,
+    p_device_code: telemetry?.deviceCode || 'GL-SCALE-01',
+    p_com_port: telemetry?.comPort || null,
+    p_raw_packet: telemetry?.rawPacket || null,
+    p_measured_weight: telemetry?.measuredWeight ?? input.actualWeightKg,
+    p_measured_unit: telemetry?.measuredUnit || 'kg',
+    p_stability_source: telemetry?.stabilitySource || 'MANUAL',
+    p_is_stable: telemetry ? telemetry.isStable : true,
+    p_is_simulated: false,
+    p_bridge_session_id: telemetry ? `ws-${telemetry.capturedAt}` : null,
+  });
+
+  if (
+    error &&
+    (error.code === 'PGRST202' || error.message.includes('Could not find the function')) &&
+    !telemetry
+  ) {
+    await recordWeighment(input);
+    return;
+  }
+
+  const mappedError = errorFrom(error, 'Could not record the weighment.');
+  if (mappedError) throw mappedError;
+}
+
+export interface InwardReweighInput {
+  jobId: string;
+  receiptId: string;
+  actualWeightKg: number;
+  purpose: MeasurementPurpose;
+  reason?: string;
+  scaleReading?: CapturedScaleReading | null;
+}
+
+export async function recordInwardReweighment(
+  input: InwardReweighInput
+): Promise<string> {
+  if (input.scaleReading?.isSimulated) {
+    throw new Error(
+      'Simulated scale readings cannot be saved to production warehouse records.'
+    );
+  }
+
+  const telemetry = input.scaleReading;
+  const { data, error } = await supabase.rpc('record_inward_reweighment', {
+    p_job_id: input.jobId,
+    p_receipt_id: input.receiptId,
+    p_actual_weight_kg: input.actualWeightKg,
+    p_purpose: input.purpose,
+    p_reason: input.reason?.trim() || null,
+    p_device_code: telemetry?.deviceCode || 'GL-SCALE-01',
+    p_com_port: telemetry?.comPort || null,
+    p_raw_packet: telemetry?.rawPacket || null,
+    p_measured_weight: telemetry?.measuredWeight ?? input.actualWeightKg,
+    p_measured_unit: telemetry?.measuredUnit || 'kg',
+    p_stability_source: telemetry?.stabilitySource || 'MANUAL',
+    p_is_stable: telemetry ? telemetry.isStable : true,
+    p_is_simulated: false,
+    p_bridge_session_id: telemetry ? `ws-${telemetry.capturedAt}` : null,
+  });
+
+  const mappedError = errorFrom(error, 'Could not record the reweighment.');
+  if (mappedError) throw mappedError;
+  return data as string;
+}
+
+export interface OutwardWeighmentInput {
+  removalId: string;
+  pickedPackageCount: number;
+  pickedActualWeightKg: number;
+  conditionNotes?: string;
+  purpose?: MeasurementPurpose;
+  reason?: string;
+  scaleReading?: CapturedScaleReading | null;
+}
+
+export async function recordOutwardWeighment(
+  input: OutwardWeighmentInput
+): Promise<string> {
+  if (input.scaleReading?.isSimulated) {
+    throw new Error(
+      'Simulated scale readings cannot be saved to production warehouse records.'
+    );
+  }
+
+  const telemetry = input.scaleReading;
+  const { data, error } = await supabase.rpc('record_outward_weighment', {
+    p_removal_id: input.removalId,
+    p_picked_package_count: input.pickedPackageCount,
+    p_picked_actual_weight_kg: input.pickedActualWeightKg,
+    p_condition_notes: input.conditionNotes?.trim() || null,
+    p_purpose: input.purpose || 'initial',
+    p_reason: input.reason?.trim() || null,
+    p_device_code: telemetry?.deviceCode || 'GL-SCALE-01',
+    p_com_port: telemetry?.comPort || null,
+    p_raw_packet: telemetry?.rawPacket || null,
+    p_measured_weight: telemetry?.measuredWeight ?? input.pickedActualWeightKg,
+    p_measured_unit: telemetry?.measuredUnit || 'kg',
+    p_stability_source: telemetry?.stabilitySource || 'MANUAL',
+    p_is_stable: telemetry ? telemetry.isStable : true,
+    p_is_simulated: false,
+    p_bridge_session_id: telemetry ? `ws-${telemetry.capturedAt}` : null,
+  });
+
+  const mappedError = errorFrom(error, 'Could not record outward delivery weighing.');
+  if (mappedError) throw mappedError;
+  return data as string;
+}
+
+export async function fetchWeighingThresholdKg(): Promise<number> {
+  const { data, error } = await supabase
+    .from('weighing_settings')
+    .select('weight_threshold_kg')
+    .eq('id', 1)
+    .maybeSingle<{ weight_threshold_kg: number }>();
+
+  if (error || !data) return CBW_DETAILS.weightThresholdKg;
+  return Number(data.weight_threshold_kg) || CBW_DETAILS.weightThresholdKg;
+}
+
+export async function updateWeighingThreshold(
+  thresholdKg: number,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase.rpc('update_weighing_threshold', {
+    p_threshold_kg: thresholdKg,
+    p_reason: reason.trim(),
+  });
+  const mappedError = errorFrom(error, 'Could not update weighing threshold.');
+  if (mappedError) throw mappedError;
+}
+
+interface MeasurementRow {
+  id: string;
+  job_id: string;
+  inward_receipt_id: string | null;
+  removal_id: string | null;
+  direction: 'inward' | 'outward';
+  purpose: MeasurementPurpose;
+  measured_weight: number;
+  measured_unit: string;
+  weight_kg: number;
+  reference_weight_kg: number;
+  variance_kg: number;
+  threshold_kg: number;
+  discrepancy_status: 'WITHIN_THRESHOLD' | 'DISCREPANCY';
+  raw_packet: string | null;
+  com_port: string | null;
+  stability_source: 'DEVICE' | 'SOFTWARE' | 'MANUAL' | 'UNSTABLE';
+  is_stable: boolean;
+  supersedes_measurement_id: string | null;
+  correction_reason: string | null;
+  notes: string | null;
+  captured_by: string;
+  captured_at: string;
+}
+
+function mapMeasurementRow(row: MeasurementRow): WeighingMeasurementRecord {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    inwardReceiptId: row.inward_receipt_id || undefined,
+    removalId: row.removal_id || undefined,
+    direction: row.direction,
+    purpose: row.purpose,
+    measuredWeight: Number(row.measured_weight),
+    measuredUnit: row.measured_unit,
+    weightKg: Number(row.weight_kg),
+    referenceWeightKg: Number(row.reference_weight_kg),
+    varianceKg: Number(row.variance_kg),
+    thresholdKg: Number(row.threshold_kg),
+    discrepancyStatus: row.discrepancy_status,
+    rawPacket: row.raw_packet || undefined,
+    comPort: row.com_port || undefined,
+    stabilitySource: row.stability_source,
+    isStable: row.is_stable,
+    supersedesMeasurementId: row.supersedes_measurement_id || undefined,
+    correctionReason: row.correction_reason || undefined,
+    notes: row.notes || undefined,
+    capturedBy: row.captured_by,
+    capturedAt: row.captured_at,
+  };
+}
+
+export async function fetchJobMeasurements(
+  jobId: string
+): Promise<WeighingMeasurementRecord[]> {
+  const { data, error } = await supabase
+    .from('weighing_measurements')
+    .select('*')
+    .eq('job_id', jobId)
+    .order('captured_at', { ascending: false });
+
+  if (error) {
+    if (error.code === 'PGRST205' || error.message.includes('does not exist')) return [];
+    throw errorFrom(error, 'Could not load weighing history.')!;
+  }
+  return ((data ?? []) as MeasurementRow[]).map(mapMeasurementRow);
+}
+
+export async function fetchAllMeasurements(
+  limit: number = 100
+): Promise<WeighingMeasurementRecord[]> {
+  const { data, error } = await supabase
+    .from('weighing_measurements')
+    .select('*')
+    .order('captured_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (error.code === 'PGRST205' || error.message.includes('does not exist')) return [];
+    throw errorFrom(error, 'Could not load weighing report.')!;
+  }
+  return ((data ?? []) as MeasurementRow[]).map(mapMeasurementRow);
+}
+
+interface ExceptionRow {
+  id: string;
+  job_id: string;
+  boe_number: string;
+  direction: 'inward' | 'outward';
+  inward_receipt_id: string | null;
+  removal_id: string | null;
+  measurement_id: string;
+  reference_weight_kg: number;
+  actual_weight_kg: number;
+  difference_kg: number;
+  threshold_kg: number;
+  unit: string;
+  status: WeighingExceptionStatus;
+  customs_notified_to: string | null;
+  customs_email_ref: string | null;
+  customs_notified_at: string | null;
+  resolution_ref: string | null;
+  resolution_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapExceptionRow(row: ExceptionRow): WeighingExceptionRecord {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    boeNumber: row.boe_number,
+    direction: row.direction,
+    inwardReceiptId: row.inward_receipt_id || undefined,
+    removalId: row.removal_id || undefined,
+    measurementId: row.measurement_id,
+    referenceWeightKg: Number(row.reference_weight_kg),
+    actualWeightKg: Number(row.actual_weight_kg),
+    differenceKg: Number(row.difference_kg),
+    thresholdKg: Number(row.threshold_kg),
+    unit: row.unit,
+    status: row.status,
+    customsNotifiedTo: row.customs_notified_to || undefined,
+    customsEmailRef: row.customs_email_ref || undefined,
+    customsNotifiedAt: row.customs_notified_at || undefined,
+    resolutionRef: row.resolution_ref || undefined,
+    resolutionNotes: row.resolution_notes || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchJobExceptions(
+  jobId: string
+): Promise<WeighingExceptionRecord[]> {
+  const { data, error } = await supabase
+    .from('weighing_exceptions')
+    .select('*')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (error.code === 'PGRST205' || error.message.includes('does not exist')) return [];
+    throw errorFrom(error, 'Could not load weighing exceptions.')!;
+  }
+  return ((data ?? []) as ExceptionRow[]).map(mapExceptionRow);
+}
+
+export async function updateWeighingExceptionStatus(input: {
+  exceptionId: string;
+  status: WeighingExceptionStatus;
+  customsTo?: string;
+  customsRef?: string;
+  resolutionRef?: string;
+  resolutionNotes?: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('update_weighing_exception_status', {
+    p_exception_id: input.exceptionId,
+    p_status: input.status,
+    p_customs_to: input.customsTo?.trim() || null,
+    p_customs_ref: input.customsRef?.trim() || null,
+    p_resolution_ref: input.resolutionRef?.trim() || null,
+    p_resolution_notes: input.resolutionNotes?.trim() || null,
+  });
+
+  const mappedError = errorFrom(error, 'Could not update exception status.');
   if (mappedError) throw mappedError;
 }
 
